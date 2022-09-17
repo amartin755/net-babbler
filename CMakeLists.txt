@@ -84,5 +84,5 @@ set (LIBTCPPUMP_SOURCES
 target_sources (net-babbler PRIVATE ${SOURCES} ${LIBTCPPUMP_SOURCES})
 target_include_directories (net-babbler
     PRIVATE ${LIBTCPPUMP_SOURCE_DIR})
-#target_link_libraries (dnscache resolv pthread)
+target_link_libraries (net-babbler pthread)
 
