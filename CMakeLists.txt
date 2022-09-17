@@ -20,9 +20,24 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # warning level
 add_compile_options (-Wall -Wextra -Wpedantic -fstack-protector-all)
 
+# check dependencies
+###############################################################################
+include (CheckSymbolExists)
+check_symbol_exists (inet_pton "arpa/inet.h" HAVE_PTON)
+check_symbol_exists (inet_ntop "arpa/inet.h" HAVE_NTOP)
+
 # preprocessor definitions
 ###############################################################################
 add_compile_definitions (APP_VERSION="${PROJECT_VERSION}")
+if (HAVE_PTON)
+    add_compile_definitions (HAVE_PTON)
+endif ()
+if (HAVE_NTOP)
+    add_compile_definitions (HAVE_NTOP)
+endif ()
+if (WIN32)
+    add_compile_definitions (HAVE_WINDOWS)
+endif ()
 
 # generate build numbers
 ###############################################################################
@@ -74,6 +89,7 @@ set (SOURCE_DIR src)
 set (SOURCES
     ${SOURCE_DIR}/application.cpp
     ${SOURCE_DIR}/client.cpp
+    ${SOURCE_DIR}/tcplistener.cpp
 )
 set (LIBTCPPUMP_SOURCE_DIR ${SOURCE_DIR}/libtcppump)
 set (LIBTCPPUMP_SOURCES

@@ -16,39 +16,25 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef TCPLISTENER_HPP
+#define TCPLISTENER_HPP
 
-#ifndef APPLICATION_HPP
-#define APPLICATION_HPP
+#include <string>
+#include <thread>
+#include <atomic>
 
-
-#include <list>
-#include <cstddef>
-#include <csignal>
-
-#include "cmdlineapp.hpp"
-
-typedef struct
-{
-    const char*  serverIP;
-    int          verbosity;
-    int          serverPort;
-    int          udp;
-}appOptions;
-
-
-class cApplication : public cCmdlineApp
+class cTcpListener
 {
 public:
-    cApplication (const char* name, const char* brief, const char* usage, const char* description);
-    virtual ~cApplication();
+    cTcpListener (uint16_t localPort);
+    ~cTcpListener ();
 
-    int execute (const std::list<std::string>& args);
+    void threadFunc ();
 
 private:
-    static void sigintHandler (int signal);
-    static volatile std::sig_atomic_t sigIntStatus;
-
-    appOptions m_options;
+    std::atomic<bool>  m_terminate;
+    std::thread*       m_thread;
+    uint16_t           m_localPort;
 };
 
-#endif /* APPLICATION_HPP */
+#endif

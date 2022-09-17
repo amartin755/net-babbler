@@ -19,6 +19,9 @@
 #include <cstring>
 #include "application.hpp"
 #include "client.hpp"
+#include "tcplistener.hpp"
+
+volatile std::sig_atomic_t cApplication::sigIntStatus;
 
 cApplication::cApplication(const char* name, const char* brief, const char* usage, const char* description)
 : cCmdlineApp (name, brief, usage, description)
@@ -44,6 +47,24 @@ cApplication::~cApplication ()
 int cApplication::execute (const std::list<std::string>& args)
 {
     bool isServer = !!m_options.serverPort;
+ 
+    switch (m_options.verbosity)
+    {
+    case 1:
+        Console::SetPrintLevel(Console::Verbose);
+        break;
+    case 2:
+        Console::SetPrintLevel(Console::MoreVerbose);
+        break;
+    case 3:
+        Console::SetPrintLevel(Console::MostVerbose);
+        break;
+    case 4:
+        Console::SetPrintLevel(Console::Debug);
+        break;
+    }
+
+    std::signal (SIGINT, sigintHandler);
 
     if (!isServer)
     {
@@ -61,9 +82,22 @@ int cApplication::execute (const std::list<std::string>& args)
         }
         cClient (*args.cbegin(), (uint16_t)dport, (uint16_t)2);
     }
+    else
+    {
+        cTcpListener ((uint16_t)m_options.serverPort);
+    }
 
     return 0;
 }
+
+void cApplication::sigintHandler (int signal)
+{
+    if (signal == SIGINT)
+    {
+        sigIntStatus++;
+    }
+}
+
 
 int main(int argc, char* argv[])
 {
