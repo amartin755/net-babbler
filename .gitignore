@@ -1,0 +1,8 @@
+.cproject
+.project
+.settings/
+build*/
+bin/
+libpcap/
+/Debug/
+.vscode/
