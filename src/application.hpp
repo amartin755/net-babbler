@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 /*
- * NET-BABBLER <https://github.com/amartin755/tcppump>
+ * NET-BABBLER <https://github.com/amartin755/net-babbler>
  * Copyright (C) 2022 Andreas Martin (netnag@mailbox.org)
  *
  * This program is free software: you can redistribute it and/or modify

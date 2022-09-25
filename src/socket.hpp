@@ -16,26 +16,28 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef CLIENT_HPP
-#define CLIENT_HPP
+#ifndef SOCKET_HPP
+#define SOCKET_HPP
 
-#include <string>
-#include <thread>
+// tcp: AF_INET/AF_INET6, SOCK_STREAM, 0
+// udp: AF_INET/AF_INET6, SOCK_DGRAM, 0
+// raw IP: AF_INET/AF_INET6, SOCK_RAW, proto 
+// sctp: AF_INET/AF_INET6, SOCK_STREAM/SOCK_SEQPACKET, IPPROTO_SCTP 
+// dccp: AF_INET/AF_INET6, SOCK_DCCP, IPPROTO_DCCP
 
-class cClient
+class cSocket
 {
 public:
-    cClient (const std::string &server, uint16_t remotePort, uint16_t localPort);
-    ~cClient ();
-
-    void threadFunc ();
-
+    cSocket (int domain, int type, int protocol);
+    ~cSocket ();
+    void bind (const struct sockaddr *adr, socklen_t adrlen);
+    cSocket accept (struct sockaddr *restrict adr,
+                  socklen_t *restrict adrlen);
 private:
-    std::thread*  m_thread;
-    std::string   m_server;
-    uint16_t      m_remotePort;
-    uint16_t      m_localPort;
-
+    void throwException ();
+    
+private:
+    int m_fd;
 };
 
 #endif

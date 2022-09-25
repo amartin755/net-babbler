@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 /*
- * NET-BABBLER <https://github.com/amartin755/tcppump>
+ * NET-BABBLER <https://github.com/amartin755/net-babbler>
  * Copyright (C) 2022 Andreas Martin (netnag@mailbox.org)
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,6 +22,7 @@
 #include <string>
 #include <thread>
 #include <atomic>
+#include <list>
 
 class cTcpListener
 {
@@ -29,12 +30,14 @@ public:
     cTcpListener (uint16_t localPort);
     ~cTcpListener ();
 
-    void threadFunc ();
+    void listenerThreadFunc ();
+    void connectionThreadFunc (int sockfd);
 
 private:
-    std::atomic<bool>  m_terminate;
-    std::thread*       m_thread;
-    uint16_t           m_localPort;
+    std::atomic<bool>       m_terminate;
+    std::thread*            m_listenerThread;
+    uint16_t                m_localPort;
+    std::list<std::thread*> m_connThreads;
 };
 
 #endif

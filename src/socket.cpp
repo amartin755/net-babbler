@@ -16,26 +16,45 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef CLIENT_HPP
-#define CLIENT_HPP
+#include <sys/socket.h>
 
-#include <string>
-#include <thread>
+#include "socket.hpp"
 
-class cClient
+cSocket::cSocket (int domain, int type, int protocol)
 {
-public:
-    cClient (const std::string &server, uint16_t remotePort, uint16_t localPort);
-    ~cClient ();
+    m_fd = socket (domain, type, protocol);
 
-    void threadFunc ();
+    if (m_fd < 0)
+    {
+        throwException ();
+    }
+}
 
-private:
-    std::thread*  m_thread;
-    std::string   m_server;
-    uint16_t      m_remotePort;
-    uint16_t      m_localPort;
+cSocket::~cSocket ()
+{
+    if (m_fd >= 0)
+        close (m_fd);
+}
 
-};
+void cSocket::bind (const struct sockaddr *adr, socklen_t adrlen)
+{
+    int ret = bind (m_fd, adr, adrlen);
+    if (ret)
+        throwException ();
+}
 
-#endif
+cSocket cSocket::accept (struct sockaddr *restrict adr, socklen_t *restrict adrlen)
+{
+    int ret = accept (m_fd, adr, adrlen);
+    if (ret < 0)
+    {
+        throwException ();
+    }
+
+    return cSocket (ret);
+}
+
+cSocket::throwException ()
+{
+
+}
