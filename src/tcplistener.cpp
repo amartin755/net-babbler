@@ -26,6 +26,7 @@
 
 #include "tcplistener.hpp"
 #include "console.hpp"
+#include "socket.hpp"
 
 cTcpListener::cTcpListener (uint16_t localPort)
     : m_terminate(false), m_listenerThread (nullptr), m_localPort (localPort)
@@ -111,110 +112,138 @@ err_out:
 
 struct header
 {
-    uint32_t type;
-    uint32_t length; // 0 means, nothing follows
-    uint64_t seq;
-    uint32_t crc;
-    uint32_t options;
-//    uint8_t data[];
     
+    void initRequest(uint64_t sequence, uint32_t payloadLength, uint32_t respLength)
+    {
+        type     = htonl (0xaaffffee);
+        length   = htonl (payloadLength + sizeof (*this));
+        seq      = htobe64 (sequence);
+        options  = htonl (respLength);
+        checksum = htonl (calcChecksum ());
+    }
     bool isRequest ()
     {
-        return type == 0xaaffffee;
+        return type == htonl(0xaaffffee);
     }
-    bool initResponse (uint32_t sequence, uint32_t payloadLength)
+    void initResponse (uint64_t sequence, uint32_t payloadLength)
     {
-        type    = 0xaaffffee;
-        length  = payloadLength + sizeof (*this) - (sizeof (length) - sizeof (type));
-        seq     = sequence;
-        crc     = 0;
-        options = 0;
+        type     = htonl (0xeeffffaa);
+        length   = htonl (payloadLength + sizeof (*this));
+        seq      = htobe64 (sequence);
+        options  = 0;
+        checksum = htonl (calcChecksum ());
     }
     bool isResponse ()
     {
-        return type == 0xeeffffaa;
+        return type == htonl(0xeeffffaa);
     }
 
+    uint32_t calcChecksum ()
+    {
+        uint32_t sum = 0;
+        uint8_t *p = reinterpret_cast<uint8_t*>(this);
+        do
+        {
+            sum += *p;
+        } while (p++ < (uint8_t*)&checksum);
+        return sum;
+    }
+
+    bool checkChecksum ()
+    {
+        return ntohl (checksum) == calcChecksum ();
+    }
+
+    uint32_t getLength ()
+    {
+        return ntohl (length);
+    }
+    uint64_t getSequence ()
+    {
+        return be64toh (seq);
+    }
+    uint32_t getOptions ()
+    {
+        return ntohl (options);
+    }
+
+private:
+    uint32_t type;
+    uint32_t length; // whole packet length, including type and length --> min value is 8
+    uint64_t seq;
+    uint32_t options;
+    uint32_t checksum;
+//    uint8_t data[];
 };
 
 void cTcpListener::connectionThreadFunc (int sockfd)
 {
-    ssize_t ret = 1;
-    while (!m_terminate && ret > 0)
+    try
     {
-        uint8_t data[2048];
-        ssize_t rxOffset = 0;
+        ssize_t ret = 1;
+        cSocket sock (sockfd);
 
-        // first try to at least receive the header
-        do
+        while (!m_terminate && ret > 0)
         {
-            ret = recv (sockfd, &data[rxOffset], sizeof(data), 0);
-            if (ret > 0)
-            {
-                rxOffset += ret;
-            }
-        } while (rxOffset < sizeof (header));
+            uint8_t data[2048];
 
-        // is this our header?
-        header* h = (header*)data;
-        if (h->isRequest())
-        {
-            uint32_t len = h->length;
-            uint64_t seq = h->seq;
-            uint32_t respLen = h->options;
-            ssize_t toBeReceived = len + xxx - rxOffset;
-
-            // receive the remaining part of the message
-            while (toBeReceived > 0)
+            // first try to at least receive the header
+            ret = sock.recv (data, sizeof(data), sizeof (header));
+            // is this our header?
+            header* h = (header*)data;
+            if (h->isRequest())
             {
-                ret = recv (sockfd, data, sizeof(data), 0);
-                if (ret > 0)
+                if (h->checkChecksum ())
                 {
-                    toBeReceived -= ret;
+                    const uint32_t len = h->getLength();
+                    const uint64_t seq = h->getSequence();
+                    const uint32_t respLen = h->getOptions();
+                    ssize_t toBeReceived = len - ret;
+
+                    // receive the remaining part of the message
+                    while (toBeReceived > 0)
+                    {
+                        ret = sock.recv (data, sizeof(data));
+                        toBeReceived -= ret;
+                        //TODO check packet content
+                    }
+                    if (toBeReceived < 0)
+                    {
+                        Console::PrintVerbose ("Warning: chunk received\n");
+                    }
+                    //TODO check packet content
+
+                    // send response
+                    h->initResponse (seq, respLen);
+                    uint8_t counter = (uint8_t)seq;
+                    uint8_t* p = data + sizeof (header);
+                    unsigned sent = sizeof (header);
+                    const unsigned totalLen = respLen + sizeof(header);
+
+                    while (sent < totalLen)
+                    {
+                        for (; sent < totalLen && p < (p + sizeof(data)); sent++)
+                            *p++ = --counter;
+                        sock.send (data, p - data);
+                        p = data;
+                    }
+                }
+                else
+                {
+                    Console::PrintVerbose ("Invalid packet header\n");
                 }
             }
-            if (toBeReceived < 0)
+            else
             {
-                Console::PrintVerbose ("Warning: chunk received\n");
+                Console::PrintMoreVerbose ("Packet ignored\n");
             }
-            h->initResponse (seq, respLen);
-        }
-
-
-
-
-
-
-        do
-        {
-            ret = recv (sockfd, &data[rxOffset], sizeof(data), 0);
-            if (ret > 0)
-            {
-                rxOffset += ret;
-            }
-        } while (rxOffset < sizeof (header));
-
-
-        uint8_t data[2048];
-        ssize_t rxOffset = 0;
-        ret = recv (sockfd, data, sizeof(data), 0);
-
-        if (ret > 0)
-        {
-            Console::PrintDebug ("-- %d\n", ret);
-            ret = send (sockfd, data, 1024*1024*1024, 0);
-            Console::PrintDebug ("++ %d\n", ret);
-        }
-        else if (ret == 0)
-        {
-            Console::PrintVerbose ("Client connection terminated\n");
-        }
-        else
-        {
-            Console::PrintError ("Receive error (%s)\n", std::strerror(errno));
         }
     }
-out:
-    close (sockfd);
+    catch (const cSocketException& e)
+    {
+        e.isError() ? 
+            Console::PrintError   ("%s\n", e.what()) : 
+            Console::PrintVerbose ("%s\n", e.what());
+    }
     Console::PrintDebug ("tcp connection terminated\n");
 }

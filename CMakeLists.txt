@@ -88,6 +88,7 @@ add_executable (net-babbler)
 set (SOURCE_DIR src)
 set (SOURCES
     ${SOURCE_DIR}/application.cpp
+    ${SOURCE_DIR}/socket.cpp
     ${SOURCE_DIR}/client.cpp
     ${SOURCE_DIR}/tcplistener.cpp
 )
