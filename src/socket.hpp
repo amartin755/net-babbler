@@ -34,6 +34,12 @@
 class cSocket
 {
 public:
+    // no default and copy constructor
+/*    cSocket () = delete;
+    cSocket (const cSocket&) = delete;
+    cSocket& operator= (const cSocket&) = delete;
+    cSocket (cSocket&&) = default;
+*/
     cSocket (int domain, int type, int protocol);
     cSocket (int fd);
     ~cSocket ();

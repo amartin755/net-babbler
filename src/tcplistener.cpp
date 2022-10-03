@@ -27,6 +27,7 @@
 #include "tcplistener.hpp"
 #include "console.hpp"
 #include "socket.hpp"
+#include "protocol.hpp"
 
 cTcpListener::cTcpListener (uint16_t localPort)
     : m_terminate(false), m_listenerThread (nullptr), m_localPort (localPort)
@@ -54,10 +55,10 @@ void cTcpListener::listenerThreadFunc ()
     int sListener;
     struct sockaddr_in address;
     const int enable = 1;
- 
+
 
     sListener = socket (AF_INET, SOCK_STREAM, 0);
-    if (sListener < 0) 
+    if (sListener < 0)
     {
         Console::PrintError ("Could not create client socket (%s)\n", std::strerror(errno));
         return;
@@ -110,71 +111,6 @@ err_out:
     close (sListener);
 }
 
-struct header
-{
-    
-    void initRequest(uint64_t sequence, uint32_t payloadLength, uint32_t respLength)
-    {
-        type     = htonl (0xaaffffee);
-        length   = htonl (payloadLength + sizeof (*this));
-        seq      = htobe64 (sequence);
-        options  = htonl (respLength);
-        checksum = htonl (calcChecksum ());
-    }
-    bool isRequest ()
-    {
-        return type == htonl(0xaaffffee);
-    }
-    void initResponse (uint64_t sequence, uint32_t payloadLength)
-    {
-        type     = htonl (0xeeffffaa);
-        length   = htonl (payloadLength + sizeof (*this));
-        seq      = htobe64 (sequence);
-        options  = 0;
-        checksum = htonl (calcChecksum ());
-    }
-    bool isResponse ()
-    {
-        return type == htonl(0xeeffffaa);
-    }
-
-    uint32_t calcChecksum ()
-    {
-        uint32_t sum = 0;
-        uint8_t *p = reinterpret_cast<uint8_t*>(this);
-        do
-        {
-            sum += *p;
-        } while (p++ < (uint8_t*)&checksum);
-        return sum;
-    }
-
-    bool checkChecksum ()
-    {
-        return ntohl (checksum) == calcChecksum ();
-    }
-
-    uint32_t getLength ()
-    {
-        return ntohl (length);
-    }
-    uint64_t getSequence ()
-    {
-        return be64toh (seq);
-    }
-    uint32_t getOptions ()
-    {
-        return ntohl (options);
-    }
-
-private:
-    uint32_t type;
-    uint32_t length; // whole packet length, including type and length --> min value is 8
-    uint64_t seq;
-    uint32_t options;
-    uint32_t checksum;
-//    uint8_t data[];
-};
 
 void cTcpListener::connectionThreadFunc (int sockfd)
 {
@@ -182,67 +118,17 @@ void cTcpListener::connectionThreadFunc (int sockfd)
     {
         ssize_t ret = 1;
         cSocket sock (sockfd);
+        cResponder responder (sock, 2048);
 
         while (!m_terminate && ret > 0)
         {
-            uint8_t data[2048];
-
-            // first try to at least receive the header
-            ret = sock.recv (data, sizeof(data), sizeof (header));
-            // is this our header?
-            header* h = (header*)data;
-            if (h->isRequest())
-            {
-                if (h->checkChecksum ())
-                {
-                    const uint32_t len = h->getLength();
-                    const uint64_t seq = h->getSequence();
-                    const uint32_t respLen = h->getOptions();
-                    ssize_t toBeReceived = len - ret;
-
-                    // receive the remaining part of the message
-                    while (toBeReceived > 0)
-                    {
-                        ret = sock.recv (data, sizeof(data));
-                        toBeReceived -= ret;
-                        //TODO check packet content
-                    }
-                    if (toBeReceived < 0)
-                    {
-                        Console::PrintVerbose ("Warning: chunk received\n");
-                    }
-                    //TODO check packet content
-
-                    // send response
-                    h->initResponse (seq, respLen);
-                    uint8_t counter = (uint8_t)seq;
-                    uint8_t* p = data + sizeof (header);
-                    unsigned sent = sizeof (header);
-                    const unsigned totalLen = respLen + sizeof(header);
-
-                    while (sent < totalLen)
-                    {
-                        for (; sent < totalLen && p < (p + sizeof(data)); sent++)
-                            *p++ = --counter;
-                        sock.send (data, p - data);
-                        p = data;
-                    }
-                }
-                else
-                {
-                    Console::PrintVerbose ("Invalid packet header\n");
-                }
-            }
-            else
-            {
-                Console::PrintMoreVerbose ("Packet ignored\n");
-            }
+            responder.doJob ();
         }
     }
     catch (const cSocketException& e)
     {
-        e.isError() ? 
-            Console::PrintError   ("%s\n", e.what()) : 
+        e.isError() ?
+            Console::PrintError   ("%s\n", e.what()) :
             Console::PrintVerbose ("%s\n", e.what());
     }
     Console::PrintDebug ("tcp connection terminated\n");
