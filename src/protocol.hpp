@@ -152,7 +152,7 @@ private:
 
         while (sent < totalLen)
         {
-            for (; sent < totalLen && p < (p + m_bufsize); sent++)
+            for (; sent < totalLen && p < (m_buf + m_bufsize); sent++)
                 *p++ = incr ? ++counter : --counter;
 
             m_socket.send (m_buf, p - m_buf);
