@@ -25,7 +25,7 @@
 class cClient
 {
 public:
-    cClient (const std::string &server, uint16_t remotePort, uint16_t localPort);
+    cClient (const std::string &server, uint16_t remotePort, uint16_t localPort, uint64_t delay);
     ~cClient ();
 
     void threadFunc ();
@@ -35,6 +35,7 @@ private:
     std::string   m_server;
     uint16_t      m_remotePort;
     uint16_t      m_localPort;
+    uint64_t      m_delay;
 
 };
 

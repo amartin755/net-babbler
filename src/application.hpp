@@ -32,7 +32,7 @@ typedef struct
     const char*  serverIP;
     int          verbosity;
     int          serverPort;
-    int          udp;
+    const char*  interval;
 }appOptions;
 
 

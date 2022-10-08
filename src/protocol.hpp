@@ -101,6 +101,19 @@ private:
 //    uint8_t data[];
 };
 
+class cStats
+{
+public:
+    cStats () : m_sentPackets(0), m_sentOctets(0), m_receivedPackets(0), m_receivedOctets(0)
+    {
+    }
+
+    uint64_t m_sentPackets;
+    uint64_t m_sentOctets;
+    uint64_t m_receivedPackets;
+    uint64_t m_receivedOctets;
+};
+
 class cBabblerProtocol
 {
 public:
@@ -155,7 +168,8 @@ private:
             for (; sent < totalLen && p < (m_buf + m_bufsize); sent++)
                 *p++ = incr ? ++counter : --counter;
 
-            m_socket.send (m_buf, p - m_buf);
+            m_stats.m_sentOctets += (uint64_t)m_socket.send (m_buf, p - m_buf);
+            m_stats.m_sentPackets++;
             p = m_buf;
         }
     }
@@ -166,11 +180,15 @@ private:
         // is this our cProtocolHeader?
         cProtocolHeader* h = (cProtocolHeader*)m_buf;
         if (!h->checkChecksum())
-            throw cProtocolException ("Wrong cProtocolHeader checksum");
+            throw cProtocolException ("Wrong header checksum");
 
         isRequest = h->isRequest();
         if (!isRequest && !h->isResponse())
             throw cProtocolException ("Unknown packet type");
+
+        m_stats.m_receivedOctets += (rcvLen);
+        m_stats.m_receivedPackets++;
+
 
         const uint32_t len    = h->getLength();
         const uint64_t seq    = h->getSequence();
@@ -205,17 +223,24 @@ private:
         }
     }
 
+    const cStats& getStats () const
+    {
+        return m_stats;
+    }
+
 private:
     cSocket& m_socket;
     const size_t m_bufsize;
     uint8_t* m_buf;
+    cStats m_stats;
 };
+
 
 class cRequestor : public cBabblerProtocol
 {
 public:
     cRequestor (cSocket& sock, unsigned bufsize, unsigned reqSize, unsigned reqDelta,
-        unsigned respSize, unsigned respDelta, unsigned delay)
+        unsigned respSize, unsigned respDelta, uint64_t delay)
         : cBabblerProtocol (sock, bufsize), m_reqSize (reqSize), m_reqDelta (0, reqDelta),
             m_respSize (respSize), m_respDelta (0, respDelta), m_delay (delay), m_seq (0)
     {
@@ -227,7 +252,7 @@ public:
         sendRequest (++m_seq, m_reqSize + m_reqDelta (m_rng), m_respSize + m_reqDelta (m_rng));
         recvResponse (m_seq);
         if (m_delay)
-            std::this_thread::sleep_for (std::chrono::milliseconds (m_delay));
+            std::this_thread::sleep_for (std::chrono::microseconds (m_delay));
     }
 
 private:
@@ -235,7 +260,7 @@ private:
     std::uniform_int_distribution<std::mt19937::result_type> m_reqDelta;
     unsigned m_respSize;
     std::uniform_int_distribution<std::mt19937::result_type> m_respDelta;
-    unsigned m_delay;
+    uint64_t m_delay;
     uint64_t m_seq;
     std::mt19937 m_rng;
 };

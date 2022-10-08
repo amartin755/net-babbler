@@ -29,8 +29,8 @@
 #include "socket.hpp"
 #include "protocol.hpp"
 
-cClient::cClient (const std::string &server, uint16_t remotePort, uint16_t localPort)
-    : m_thread (nullptr), m_server (server), m_remotePort (remotePort), m_localPort (localPort)
+cClient::cClient (const std::string &server, uint16_t remotePort, uint16_t localPort, uint64_t delay)
+    : m_thread (nullptr), m_server (server), m_remotePort (remotePort), m_localPort (localPort), m_delay (delay)
 {
     m_thread = new std::thread (&cClient::threadFunc, this);
 }
@@ -91,7 +91,7 @@ void cClient::threadFunc ()
     try
     {
         cSocket sock (sfd);
-        cRequestor requestor (sock, 2048, 1230, 123, 12340, 1234, 0);
+        cRequestor requestor (sock, 2048, 1230, 123, 12340, 1234, m_delay);
 
         while (1/*!m_terminate*/)
         {
