@@ -27,7 +27,7 @@
 class cTcpListener
 {
 public:
-    cTcpListener (uint16_t localPort);
+    cTcpListener (uint16_t localPort, unsigned socketBufSize);
     ~cTcpListener ();
 
     void listenerThreadFunc ();
@@ -38,6 +38,7 @@ private:
     std::thread*            m_listenerThread;
     uint16_t                m_localPort;
     std::list<std::thread*> m_connThreads;
+    unsigned                m_socketBufSize;
 };
 
 #endif

@@ -26,20 +26,20 @@ volatile std::sig_atomic_t cApplication::sigIntStatus;
 cApplication::cApplication(const char* name, const char* brief, const char* usage, const char* description)
 : cCmdlineApp (name, brief, usage, description)
 {
-    std::memset (&m_options, 0, sizeof(m_options));
-
     addCmdLineOption (true, 'v', "verbose",
             "When parsing and printing, produce verbose output. This option can be supplied multiple times\n\t"
             "(max. 4 times, i.e. -vvvv) for even more debug output. "
             , &m_options.verbosity);
     addCmdLineOption (true, 'l', "listen", "PORT",
             "Listen for incoming connections on PORT.", &m_options.serverPort);
-    addCmdLineOption (true, 'i', "--interval", "TIME",
+    addCmdLineOption (true, 'i', "interval", "TIME",
             "Wait TIME in seconds between sending packets. Default is 0.0s.", &m_options.interval);
-    addCmdLineOption (true, 'c', "--count", "COUNT",
+    addCmdLineOption (true, 'c', "count", "COUNT",
             "Stop after sending and receiving COUNT packets.", &m_options.count);
-    addCmdLineOption (true, 't', "--time", "SECONDS",
+    addCmdLineOption (true, 't', "time", "SECONDS",
             "Stop after running SECONDS.", &m_options.time);
+    addCmdLineOption (true, 0, "buf-size", "BYTES",
+            "Set internal buffer for send/receive to BYTES (default 64k)", &m_options.sockBufSize);
 }
 
 cApplication::~cApplication ()
@@ -79,6 +79,13 @@ int cApplication::execute (const std::list<std::string>& args)
         interval_us = (uint64_t)(interval * 1000000.0);
     }
 
+    if (m_options.sockBufSize < 64)
+    {
+        Console::PrintError ("Invalid socket buffer size '%d'\n", m_options.sockBufSize);
+        return -2;
+    }
+
+
 //    std::signal (SIGINT, sigintHandler);
 
     if (!isServer)
@@ -96,11 +103,11 @@ int cApplication::execute (const std::list<std::string>& args)
             return -2;
         }
         cClient (*args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
-            interval_us, (unsigned)m_options.count, (unsigned)m_options.time);
+            interval_us, (unsigned)m_options.count, (unsigned)m_options.time, (unsigned)m_options.sockBufSize);
     }
     else
     {
-        cTcpListener ((uint16_t)m_options.serverPort);
+        cTcpListener ((uint16_t)m_options.serverPort, (unsigned)m_options.sockBufSize);
     }
 
     return 0;

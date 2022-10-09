@@ -27,7 +27,7 @@
 
 #include "cmdlineapp.hpp"
 
-typedef struct
+struct appOptions
 {
     const char*  serverIP;
     int          verbosity;
@@ -35,7 +35,19 @@ typedef struct
     const char*  interval;
     int          count;
     int          time;
-}appOptions;
+    int          sockBufSize;
+
+    appOptions () :
+        serverIP (nullptr),
+        verbosity (0),
+        serverPort (0),
+        interval (nullptr),
+        count (0),
+        time (0),
+        sockBufSize (1024*64)
+    {
+    }
+};
 
 
 class cApplication : public cCmdlineApp

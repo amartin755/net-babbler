@@ -27,7 +27,8 @@ class cClient
 {
 public:
     cClient (const std::string &server, uint16_t remotePort,
-        uint16_t localPort, uint64_t delay, unsigned count, unsigned time);
+        uint16_t localPort, uint64_t delay, unsigned count, unsigned time,
+        unsigned socketBufSize);
     ~cClient ();
 
     void threadFunc ();
@@ -41,6 +42,7 @@ private:
     uint64_t      m_delay;
     unsigned      m_count;
     unsigned      m_time;
+    unsigned      m_socketBufSize;
 };
 
 #endif

@@ -29,8 +29,9 @@
 #include "socket.hpp"
 #include "protocol.hpp"
 
-cTcpListener::cTcpListener (uint16_t localPort)
-    : m_terminate(false), m_listenerThread (nullptr), m_localPort (localPort)
+cTcpListener::cTcpListener (uint16_t localPort, unsigned socketBufSize)
+    : m_terminate(false), m_listenerThread (nullptr),
+      m_localPort (localPort), m_socketBufSize (socketBufSize)
 {
     m_listenerThread = new std::thread (&cTcpListener::listenerThreadFunc, this);
 }
@@ -118,7 +119,7 @@ void cTcpListener::connectionThreadFunc (int sockfd)
     {
         ssize_t ret = 1;
         cSocket sock (sockfd);
-        cResponder responder (sock, 2048);
+        cResponder responder (sock, m_socketBufSize);
 
         while (!m_terminate && ret > 0)
         {

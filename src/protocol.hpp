@@ -256,7 +256,7 @@ public:
         sendRequest (++m_seq, reqSize, respSize);
         recvResponse (m_seq);
         if (m_delay > 10000)
-            Console::Print (" %4u" PRIu64 ": sent %u bytes, received=%u bytes\n", m_seq, reqSize, respSize);
+            Console::Print (" %4" PRIu64 ": sent %u bytes, received=%u bytes\n", m_seq, reqSize, respSize);
         if (m_delay)
             std::this_thread::sleep_for (std::chrono::microseconds (m_delay));
     }

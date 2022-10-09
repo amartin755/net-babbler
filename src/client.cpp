@@ -31,9 +31,16 @@
 #include "protocol.hpp"
 
 cClient::cClient (const std::string &server, uint16_t remotePort, uint16_t localPort,
-    uint64_t delay, unsigned count, unsigned time)
-    : m_terminate(false), m_thread (nullptr), m_server (server), m_remotePort (remotePort),
-      m_localPort (localPort), m_delay (delay), m_count (count), m_time (time)
+    uint64_t delay, unsigned count, unsigned time, unsigned socketBufSize)
+    : m_terminate(false),
+      m_thread (nullptr),
+      m_server (server),
+      m_remotePort (remotePort),
+      m_localPort (localPort),
+      m_delay (delay),
+      m_count (count),
+      m_time (time),
+      m_socketBufSize (socketBufSize)
 {
     m_thread = new std::thread (&cClient::threadFunc, this);
 }
@@ -94,7 +101,7 @@ void cClient::threadFunc ()
     try
     {
         cSocket sock (sfd);
-        cRequestor requestor (sock, 2048, 1230, 123, 12340, 1234, m_delay);
+        cRequestor requestor (sock, m_socketBufSize, 1230, 123, 12340, 1234, m_delay);
         bool infinite = m_count == 0;
         auto start = std::chrono::high_resolution_clock::now();
 
