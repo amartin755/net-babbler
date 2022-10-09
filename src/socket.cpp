@@ -21,7 +21,8 @@
 #include "bug.hpp"
 #include "socket.hpp"
 
-cSocket::cSocket (int domain, int type, int protocol)
+cSocket::cSocket (int domain, int type, int protocol, int evfd, int timeout)
+    : m_evfd (evfd), m_timeout_ms (timeout)
 {
     m_fd = socket (domain, type, protocol);
 
@@ -29,11 +30,22 @@ cSocket::cSocket (int domain, int type, int protocol)
     {
         throwException (errno);
     }
+
+    initPoll ();
 }
 
-cSocket::cSocket (int fd)
+cSocket::cSocket (int fd, int evfd, int timeout)
+    : m_fd(fd), m_evfd (evfd), m_timeout_ms (timeout)
 {
-    m_fd = fd;
+    initPoll ();
+}
+
+void cSocket::initPoll ()
+{
+    m_pollfd[0].fd = m_fd;
+    m_pollfd[1].fd = m_evfd;
+    m_pollfd[0].events = POLLIN;
+    m_pollfd[1].events = POLLIN;
 }
 
 cSocket::~cSocket ()
@@ -69,14 +81,31 @@ ssize_t cSocket::recv (void *buf, size_t len, size_t atleast, int flags)
     do
     {
         errno = 0;
-        ssize_t ret = ::recv (m_fd, p, len - received, flags);
-        if (ret <= 0)
+        int pollret = poll (m_pollfd, 2, m_timeout_ms);
+        if (pollret < 0)
         {
             throwException (errno);
         }
-        received += ret;
-        p += ret;
+        else if (pollret == 0)
+        {
+            throw cSocketException ("Receive timeout", true);
+        }
 
+        // data received
+        if (m_pollfd[0].revents & POLLIN)
+        {
+            errno = 0;
+            ssize_t ret = ::recv (m_fd, p, len - received, flags);
+            if (ret <= 0)
+            {
+                throwException (errno);
+            }
+            received += ret;
+            p += ret;
+        }
+        // termination request
+        if (m_pollfd[1].revents & POLLIN)
+            throw cSocketException ("", false);
     } while (received < atleast);
 
     return received;
@@ -103,5 +132,8 @@ ssize_t cSocket::send (const void *buf, size_t len, int flags)
 
 void cSocket::throwException (int err)
 {
-    throw cSocketException (err);
+    if (err)
+        throw cSocketException (err);
+    else
+        throw cSocketException ("Connection terminated", false);
 }

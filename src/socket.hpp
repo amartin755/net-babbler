@@ -21,14 +21,15 @@
 
 #include <stdexcept>
 #include <string>
-#include <string.h>
+#include <cstring>
 
 #include <sys/socket.h>
+#include <sys/poll.h>
 
 // tcp: AF_INET/AF_INET6, SOCK_STREAM, 0
 // udp: AF_INET/AF_INET6, SOCK_DGRAM, 0
-// raw IP: AF_INET/AF_INET6, SOCK_RAW, proto 
-// sctp: AF_INET/AF_INET6, SOCK_STREAM/SOCK_SEQPACKET, IPPROTO_SCTP 
+// raw IP: AF_INET/AF_INET6, SOCK_RAW, proto
+// sctp: AF_INET/AF_INET6, SOCK_STREAM/SOCK_SEQPACKET, IPPROTO_SCTP
 // dccp: AF_INET/AF_INET6, SOCK_DCCP, IPPROTO_DCCP
 
 class cSocket
@@ -40,19 +41,23 @@ public:
     cSocket& operator= (const cSocket&) = delete;
     cSocket (cSocket&&) = default;
 */
-    cSocket (int domain, int type, int protocol);
-    cSocket (int fd);
+    cSocket (int domain, int type, int protocol, int evfd = -1, int timeout = -1);
+    cSocket (int fd, int evfd = -1, int timeout = -1);
     ~cSocket ();
     void bind (const struct sockaddr *adr, socklen_t adrlen);
     cSocket accept (struct sockaddr * adr, socklen_t * adrlen);
     ssize_t recv (void *buf, size_t len, size_t atleast = 0, int flags = 0);
     ssize_t send (const void *buf, size_t len, int flags = 0);
-    
+
 private:
     void throwException (int err);
-    
+    void initPoll ();
+
 private:
     int m_fd;
+    int m_evfd;
+    struct pollfd m_pollfd[2]; // 0: socket fd, 1: event fd
+    int m_timeout_ms;
 };
 
 class cSocketException : public std::exception
@@ -63,16 +68,14 @@ public:
         if (m_err)
             strerror_r (m_err, m_what, sizeof (m_what));
     }
+    cSocketException (const char* what, bool isError)
+    {
+        m_err = isError ? -1 : 0;
+        std::strncpy (m_what, what, sizeof(m_what));
+    }
     const char* what() const noexcept
     {
-        if (m_err)
-        {
-            return m_what;
-        }
-        else
-        {
-            return "Connection terminated";
-        }
+        return m_what;
     }
     bool isError () const noexcept
     {

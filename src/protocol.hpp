@@ -242,8 +242,14 @@ class cRequestor : public cBabblerProtocol
 public:
     cRequestor (cSocket& sock, unsigned bufsize, unsigned reqSize, unsigned reqDelta,
         unsigned respSize, unsigned respDelta, uint64_t delay)
-        : cBabblerProtocol (sock, bufsize), m_reqSize (reqSize), m_reqDelta (0, reqDelta),
-            m_respSize (respSize), m_respDelta (0, respDelta), m_delay (delay), m_seq (0)
+        : cBabblerProtocol (sock, bufsize),
+          m_reqSize (reqSize),
+          m_reqDelta (0, reqDelta),
+          m_respSize (respSize),
+          m_respDelta (0, respDelta),
+          m_delay (delay),
+          m_seq (0),
+          m_wantStatus (m_delay > 10000)
     {
     }
 
@@ -254,21 +260,28 @@ public:
         unsigned respSize = m_respSize + m_respDelta (m_rng);
 
         sendRequest (++m_seq, reqSize, respSize);
+        auto start = std::chrono::high_resolution_clock::now();
         recvResponse (m_seq);
-        if (m_delay > 10000)
-            Console::Print (" %4" PRIu64 ": sent %u bytes, received=%u bytes\n", m_seq, reqSize, respSize);
+        auto end = std::chrono::high_resolution_clock::now();
+
+        std::chrono::duration<double, std::milli> roundtrip = end - start;
+
+        if (m_wantStatus)
+            Console::Print (" %4" PRIu64 ": sent %u bytes, received %u bytes, roundtrip %.3f ms\n", m_seq, reqSize, respSize, roundtrip);
         if (m_delay)
             std::this_thread::sleep_for (std::chrono::microseconds (m_delay));
     }
 
 private:
-    unsigned m_reqSize;
+    const unsigned m_reqSize;
     std::uniform_int_distribution<std::mt19937::result_type> m_reqDelta;
-    unsigned m_respSize;
+    const unsigned m_respSize;
     std::uniform_int_distribution<std::mt19937::result_type> m_respDelta;
-    uint64_t m_delay;
+    const uint64_t m_delay;
     uint64_t m_seq;
     std::mt19937 m_rng;
+
+    const bool m_wantStatus;
 };
 
 class cResponder : public cBabblerProtocol

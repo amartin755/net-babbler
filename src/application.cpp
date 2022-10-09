@@ -84,8 +84,16 @@ int cApplication::execute (const std::list<std::string>& args)
         Console::PrintError ("Invalid socket buffer size '%d'\n", m_options.sockBufSize);
         return -2;
     }
-
-
+/*
+    struct sigaction act;
+    std::memset (&act, 0, sizeof(act));
+    act.sa_handler = sigintHandler;
+    act.sa_flags = 0;
+    if (sigaction (SIGINT, &act, NULL) == -1)
+    {
+        return -3;
+    }
+*/
 //    std::signal (SIGINT, sigintHandler);
 
     if (!isServer)
@@ -102,8 +110,11 @@ int cApplication::execute (const std::list<std::string>& args)
             Console::PrintError ("Invalid port number\n");
             return -2;
         }
-        cClient (*args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
+        cClient client(*args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
             interval_us, (unsigned)m_options.count, (unsigned)m_options.time, (unsigned)m_options.sockBufSize);
+//        sleep (10);
+//        client.finish();
+
     }
     else
     {
@@ -117,6 +128,7 @@ void cApplication::sigintHandler (int signal)
 {
     if (signal == SIGINT)
     {
+            Console::PrintError ("X\n");
         sigIntStatus++;
     }
 }

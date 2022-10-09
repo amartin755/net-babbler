@@ -18,12 +18,14 @@
 
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/eventfd.h>
 
 #include <netdb.h>
 #include <unistd.h>
 
 #include <cstring>
 #include <chrono>
+#include <new> // bad_alloc
 
 #include "client.hpp"
 #include "console.hpp"
@@ -42,6 +44,9 @@ cClient::cClient (const std::string &server, uint16_t remotePort, uint16_t local
       m_time (time),
       m_socketBufSize (socketBufSize)
 {
+    m_evfd = eventfd (0, EFD_SEMAPHORE);
+    if (m_evfd == -1)
+        throw std::bad_alloc ();
     m_thread = new std::thread (&cClient::threadFunc, this);
 }
 
@@ -49,6 +54,14 @@ cClient::~cClient ()
 {
     if (m_thread)
         m_thread->join ();
+
+    close (m_evfd);
+}
+
+void cClient::finish ()
+{
+    uint64_t val = 1;
+    write (m_evfd, &val, sizeof(val));
 }
 
 void cClient::threadFunc ()
@@ -101,10 +114,10 @@ void cClient::threadFunc ()
     try
     {
         // TODO pattern: fixed size, random range (as today), sweep
-        cSocket sock (sfd);
+        cSocket sock (sfd, m_evfd);
         cRequestor requestor (sock, m_socketBufSize, 1230, 123, 12340, 1234, m_delay);
         bool infinite = m_count == 0;
-        auto start = std::chrono::high_resolution_clock::now();
+        auto start = std::chrono::steady_clock::now();
 
         while (!m_terminate)
         {
@@ -115,7 +128,7 @@ void cClient::threadFunc ()
             if (m_time)
             {
                 using namespace std::chrono;
-                auto now = high_resolution_clock::now();
+                auto now = steady_clock::now();
                 auto elapsedSeconds = duration_cast<seconds>(now - start);
                 if (elapsedSeconds.count () >= m_time)
                     m_terminate = true;
