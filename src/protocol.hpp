@@ -250,13 +250,13 @@ public:
     void doJob ()
     {
         // generate random delta for request and response
-        uint64_t reqSize  = m_reqSize + m_reqDelta (m_rng);
-        uint64_t respSize = m_respSize + m_respDelta (m_rng);
+        unsigned reqSize  = m_reqSize + m_reqDelta (m_rng);
+        unsigned respSize = m_respSize + m_respDelta (m_rng);
 
         sendRequest (++m_seq, reqSize, respSize);
         recvResponse (m_seq);
         if (m_delay > 10000)
-            Console::Print (" %4" PRIu64 ": sent %" PRIu64 " bytes, received=%" PRIu64 " bytes\n", m_seq, reqSize, respSize);
+            Console::Print (" %4u" PRIu64 ": sent %u bytes, received=%u bytes\n", m_seq, reqSize, respSize);
         if (m_delay)
             std::this_thread::sleep_for (std::chrono::microseconds (m_delay));
     }
