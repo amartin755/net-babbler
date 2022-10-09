@@ -21,22 +21,26 @@
 
 #include <string>
 #include <thread>
+#include <atomic>
 
 class cClient
 {
 public:
-    cClient (const std::string &server, uint16_t remotePort, uint16_t localPort, uint64_t delay);
+    cClient (const std::string &server, uint16_t remotePort,
+        uint16_t localPort, uint64_t delay, unsigned count, unsigned time);
     ~cClient ();
 
     void threadFunc ();
 
 private:
+    std::atomic<bool> m_terminate;
     std::thread*  m_thread;
     std::string   m_server;
     uint16_t      m_remotePort;
     uint16_t      m_localPort;
     uint64_t      m_delay;
-
+    unsigned      m_count;
+    unsigned      m_time;
 };
 
 #endif

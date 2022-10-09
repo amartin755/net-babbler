@@ -23,14 +23,17 @@
 #include <unistd.h>
 
 #include <cstring>
+#include <chrono>
 
 #include "client.hpp"
 #include "console.hpp"
 #include "socket.hpp"
 #include "protocol.hpp"
 
-cClient::cClient (const std::string &server, uint16_t remotePort, uint16_t localPort, uint64_t delay)
-    : m_thread (nullptr), m_server (server), m_remotePort (remotePort), m_localPort (localPort), m_delay (delay)
+cClient::cClient (const std::string &server, uint16_t remotePort, uint16_t localPort,
+    uint64_t delay, unsigned count, unsigned time)
+    : m_terminate(false), m_thread (nullptr), m_server (server), m_remotePort (remotePort),
+      m_localPort (localPort), m_delay (delay), m_count (count), m_time (time)
 {
     m_thread = new std::thread (&cClient::threadFunc, this);
 }
@@ -92,10 +95,23 @@ void cClient::threadFunc ()
     {
         cSocket sock (sfd);
         cRequestor requestor (sock, 2048, 1230, 123, 12340, 1234, m_delay);
+        bool infinite = m_count == 0;
+        auto start = std::chrono::high_resolution_clock::now();
 
-        while (1/*!m_terminate*/)
+        while (!m_terminate)
         {
             requestor.doJob ();
+
+            if (!infinite && --m_count == 0)
+                m_terminate = true;
+            if (m_time)
+            {
+                using namespace std::chrono;
+                auto now = high_resolution_clock::now();
+                auto elapsedSeconds = duration_cast<seconds>(now - start);
+                if (elapsedSeconds.count () >= m_time)
+                    m_terminate = true;
+            }
         }
     }
     catch (const cSocketException& e)

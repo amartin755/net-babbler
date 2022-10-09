@@ -33,6 +33,8 @@ typedef struct
     int          verbosity;
     int          serverPort;
     const char*  interval;
+    int          count;
+    int          time;
 }appOptions;
 
 

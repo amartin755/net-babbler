@@ -21,6 +21,7 @@
 
 #include <arpa/inet.h>
 #include <cstdint>
+#include <cinttypes>
 #include <stdexcept>
 #include <random>
 #include <chrono>
@@ -249,8 +250,13 @@ public:
     void doJob ()
     {
         // generate random delta for request and response
-        sendRequest (++m_seq, m_reqSize + m_reqDelta (m_rng), m_respSize + m_reqDelta (m_rng));
+        uint64_t reqSize  = m_reqSize + m_reqDelta (m_rng);
+        uint64_t respSize = m_respSize + m_respDelta (m_rng);
+
+        sendRequest (++m_seq, reqSize, respSize);
         recvResponse (m_seq);
+        if (m_delay > 10000)
+            Console::Print (" %4" PRIu64 ": sent %" PRIu64 " bytes, received=%" PRIu64 " bytes\n", m_seq, reqSize, respSize);
         if (m_delay)
             std::this_thread::sleep_for (std::chrono::microseconds (m_delay));
     }

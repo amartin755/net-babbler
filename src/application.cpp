@@ -36,6 +36,10 @@ cApplication::cApplication(const char* name, const char* brief, const char* usag
             "Listen for incoming connections on PORT.", &m_options.serverPort);
     addCmdLineOption (true, 'i', "--interval", "TIME",
             "Wait TIME in seconds between sending packets. Default is 0.0s.", &m_options.interval);
+    addCmdLineOption (true, 'c', "--count", "COUNT",
+            "Stop after sending and receiving COUNT packets.", &m_options.count);
+    addCmdLineOption (true, 't', "--time", "SECONDS",
+            "Stop after running SECONDS.", &m_options.time);
 }
 
 cApplication::~cApplication ()
@@ -46,8 +50,8 @@ cApplication::~cApplication ()
 int cApplication::execute (const std::list<std::string>& args)
 {
     bool isServer = !!m_options.serverPort;
-    uint64_t interval_us;
- 
+    uint64_t interval_us = 0;;
+
     switch (m_options.verbosity)
     {
     case 1:
@@ -67,19 +71,13 @@ int cApplication::execute (const std::list<std::string>& args)
     if (m_options.interval)
     {
         double interval = std::stod (m_options.interval);
-        if (interval >= 1.0) // seconds
-            interval_us = (uint64_t)(interval * 1000000.0);
-        else if (interval >= 0.001) // miliseconds
-            interval_us = (uint64_t)(interval * 1000.0);
-        else if (interval >= 0.000001) // microseconds
-            interval_us = (uint64_t)interval;
-        else
+        if (interval < 0.000001) // microseconds
         {
             Console::PrintError ("Invalid interval value '%s'\n", m_options.interval);
             return -2;
         }
+        interval_us = (uint64_t)(interval * 1000000.0);
     }
-
 
 //    std::signal (SIGINT, sigintHandler);
 
@@ -97,7 +95,8 @@ int cApplication::execute (const std::list<std::string>& args)
             Console::PrintError ("Invalid port number\n");
             return -2;
         }
-        cClient (*args.cbegin(), (uint16_t)dport, (uint16_t)2, interval_us);
+        cClient (*args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
+            interval_us, (unsigned)m_options.count, (unsigned)m_options.time);
     }
     else
     {
