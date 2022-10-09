@@ -100,6 +100,7 @@ void cClient::threadFunc ()
 
     try
     {
+        // TODO pattern: fixed size, random range (as today), sweep
         cSocket sock (sfd);
         cRequestor requestor (sock, m_socketBufSize, 1230, 123, 12340, 1234, m_delay);
         bool infinite = m_count == 0;
