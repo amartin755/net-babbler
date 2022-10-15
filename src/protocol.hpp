@@ -109,6 +109,25 @@ public:
     {
     }
 
+    cStats operator+ (const cStats& val) const
+    {
+        cStats result;
+        result.m_sentPackets     = m_sentPackets     + val.m_sentPackets;
+        result.m_sentOctets      = m_sentOctets      + val.m_sentOctets;
+        result.m_receivedPackets = m_receivedPackets + val.m_receivedPackets;
+        result.m_receivedOctets  = m_receivedOctets  + val.m_receivedOctets;
+        return result;
+    }
+    cStats operator- (const cStats& val) const
+    {
+        cStats result;
+        result.m_sentPackets     = m_sentPackets     - val.m_sentPackets;
+        result.m_sentOctets      = m_sentOctets      - val.m_sentOctets;
+        result.m_receivedPackets = m_receivedPackets - val.m_receivedPackets;
+        result.m_receivedOctets  = m_receivedOctets  - val.m_receivedOctets;
+        return result;
+    }
+
     uint64_t m_sentPackets;
     uint64_t m_sentOctets;
     uint64_t m_receivedPackets;
@@ -154,6 +173,10 @@ public:
         seq = receive (isRequest, expRespLen);
         if (!isRequest)
             throw cProtocolException ("Unexpected packet type");
+    }
+    const cStats& getStats () const
+    {
+        return m_stats;
     }
 
 private:
@@ -224,11 +247,6 @@ private:
         }
     }
 
-    const cStats& getStats () const
-    {
-        return m_stats;
-    }
-
 private:
     cSocket& m_socket;
     const size_t m_bufsize;
@@ -270,6 +288,11 @@ public:
             Console::Print (" %4" PRIu64 ": sent %u bytes, received %u bytes, roundtrip %.3f ms\n", m_seq, reqSize, respSize, roundtrip);
         if (m_delay)
             std::this_thread::sleep_for (std::chrono::microseconds (m_delay));
+    }
+
+    const cStats& getStats () const
+    {
+        return cBabblerProtocol::getStats ();
     }
 
 private:

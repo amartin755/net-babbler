@@ -96,9 +96,9 @@ void cTcpListener::listenerThreadFunc ()
         if (sConn >= 0)
         {
             char ip[INET6_ADDRSTRLEN];
-            Console::PrintVerbose ("Client %s connected to tcp port %d\n",
+            Console::PrintVerbose ("Client %s:%u connected to tcp port %u\n",
                 inet_ntop (address.sin_family, &address.sin_addr, ip, addrLen),
-                ntohs (address.sin_port));
+                (unsigned)ntohs (address.sin_port), (unsigned)m_localPort);
 
             m_connThreads.push_back (new std::thread (&cTcpListener::connectionThreadFunc, this, sConn));
         }

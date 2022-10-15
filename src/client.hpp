@@ -23,10 +23,12 @@
 #include <thread>
 #include <atomic>
 
+#include "event.hpp"
+
 class cClient
 {
 public:
-    cClient (const std::string &server, uint16_t remotePort,
+    cClient (cEvent& evTerminated, const std::string &server, uint16_t remotePort,
         uint16_t localPort, uint64_t delay, unsigned count, unsigned time,
         unsigned socketBufSize);
     ~cClient ();
@@ -35,6 +37,7 @@ public:
     void threadFunc ();
 
 private:
+    cEvent        m_evTerminated;
     std::atomic<bool> m_terminate;
     std::thread*  m_thread;
     std::string   m_server;

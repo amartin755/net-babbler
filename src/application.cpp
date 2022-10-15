@@ -40,6 +40,8 @@ cApplication::cApplication(const char* name, const char* brief, const char* usag
             "Stop after running SECONDS.", &m_options.time);
     addCmdLineOption (true, 0, "buf-size", "BYTES",
             "Set internal buffer for send/receive to BYTES (default 64k)", &m_options.sockBufSize);
+    addCmdLineOption (true, 'n', nullptr, "CONNECTIONS",
+            "Number of parallel conntections to server.", &m_options.clientConnections);
 }
 
 cApplication::~cApplication ()
@@ -110,8 +112,28 @@ int cApplication::execute (const std::list<std::string>& args)
             Console::PrintError ("Invalid port number\n");
             return -2;
         }
-        cClient client(*args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
-            interval_us, (unsigned)m_options.count, (unsigned)m_options.time, (unsigned)m_options.sockBufSize);
+
+        cEvent evClientTerminated;
+        std::list<cClient> clients;
+        for (int n = 0; n < m_options.clientConnections; n++)
+        {
+            clients.emplace_back (evClientTerminated, *args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
+                interval_us, (unsigned)m_options.count, (unsigned)m_options.time,
+                (unsigned)m_options.sockBufSize);
+        }
+
+        int n = 0;
+        while (n++ != m_options.clientConnections)
+        {
+            evClientTerminated.wait ();
+            Console::PrintError ("bin weg\n");
+
+        }
+        Console::PrintError ("Feierabend\n");
+
+//        cClient client(*args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
+//            interval_us, (unsigned)m_options.count, (unsigned)m_options.time,
+//            (unsigned)m_options.sockBufSize);
 //        sleep (10);
 //        client.finish();
 

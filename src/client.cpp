@@ -32,9 +32,10 @@
 #include "socket.hpp"
 #include "protocol.hpp"
 
-cClient::cClient (const std::string &server, uint16_t remotePort, uint16_t localPort,
-    uint64_t delay, unsigned count, unsigned time, unsigned socketBufSize)
-    : m_terminate(false),
+cClient::cClient (cEvent& evTerminated, const std::string &server, uint16_t remotePort,
+    uint16_t localPort, uint64_t delay, unsigned count, unsigned time, unsigned socketBufSize)
+    : m_evTerminated (evTerminated),
+      m_terminate(false),
       m_thread (nullptr),
       m_server (server),
       m_remotePort (remotePort),
@@ -62,6 +63,30 @@ void cClient::finish ()
 {
     uint64_t val = 1;
     write (m_evfd, &val, sizeof(val));
+}
+
+
+void print_ips(struct addrinfo *lst) {
+    /* IPv4 */
+    char ipv4[INET_ADDRSTRLEN];
+    struct sockaddr_in *addr4;
+
+    /* IPv6 */
+    char ipv6[INET6_ADDRSTRLEN];
+    struct sockaddr_in6 *addr6;
+
+    for (; lst != NULL; lst = lst->ai_next) {
+        if (lst->ai_addr->sa_family == AF_INET) {
+            addr4 = (struct sockaddr_in *) lst->ai_addr;
+            inet_ntop(AF_INET, &addr4->sin_addr, ipv4, INET_ADDRSTRLEN);
+            printf("resolved IP: %s\n", ipv4);
+        }
+        else if (lst->ai_addr->sa_family == AF_INET6) {
+            addr6 = (struct sockaddr_in6 *) lst->ai_addr;
+            inet_ntop(AF_INET6, &addr6->sin6_addr, ipv6, INET6_ADDRSTRLEN);
+            printf("IP: %s\n", ipv6);
+        }
+    }
 }
 
 void cClient::threadFunc ()
@@ -103,6 +128,7 @@ void cClient::threadFunc ()
 
         close(sfd);
     }
+    print_ips (result);
     freeaddrinfo(result);
 
     if (!rp)
@@ -111,29 +137,76 @@ void cClient::threadFunc ()
         return;
     }
 
+        // Get my ip address and port
+    struct sockaddr_in my_addr;
+    char myIP[16];
+    unsigned int myPort;
+    bzero(&my_addr, sizeof(my_addr));
+    socklen_t len = sizeof(my_addr);
+    getsockname(sfd, (struct sockaddr *) &my_addr, &len);
+    inet_ntop(AF_INET, &my_addr.sin_addr, myIP, sizeof(myIP));
+    myPort = ntohs(my_addr.sin_port);
+
+    printf("Local ip address: %s\n", myIP);
+    printf("Local port : %u\n", myPort);
+
+
     try
     {
+        using namespace std::chrono;
+
         // TODO pattern: fixed size, random range (as today), sweep
         cSocket sock (sfd, m_evfd);
         cRequestor requestor (sock, m_socketBufSize, 1230, 123, 12340, 1234, m_delay);
         bool infinite = m_count == 0;
-        auto start = std::chrono::steady_clock::now();
+        cStats lastStats;
+        auto start = steady_clock::now();
+        auto lastStatus = start;
 
         while (!m_terminate)
         {
             requestor.doJob ();
 
+            auto now = steady_clock::now();
+            if (duration_cast<seconds>(now - lastStatus).count() >= 5)
+            {
+                cStats currStats  = requestor.getStats ();
+                cStats deltaStats = currStats - lastStats;
+
+                Console::Print (
+                    "[%d sec]  "
+                    "sent/received: %" PRIu64 "/%" PRIu64 " packets, %" PRIu64 "/%" PRIu64 " bytes, "
+                    "%" PRIu64 "/%" PRIu64 "  bytes/sec\n",
+                    duration_cast<seconds>(now-start).count(),
+                    deltaStats.m_sentPackets, deltaStats.m_receivedPackets,
+                    deltaStats.m_sentOctets, deltaStats.m_receivedOctets,
+                    deltaStats.m_sentOctets / 5, deltaStats.m_receivedOctets / 5);
+
+                lastStats = currStats;
+                lastStatus = now;
+            }
+
             if (!infinite && --m_count == 0)
                 m_terminate = true;
+
             if (m_time)
             {
-                using namespace std::chrono;
                 auto now = steady_clock::now();
                 auto elapsedSeconds = duration_cast<seconds>(now - start);
                 if (elapsedSeconds.count () >= m_time)
                     m_terminate = true;
             }
         }
+        auto end = steady_clock::now();
+        auto duration = duration_cast<seconds>(end - start).count();
+        const cStats& summary = requestor.getStats ();
+
+        Console::Print (
+            "\n------ statistic ------\n"
+            "sent:     %8" PRIu64 " packets, %10" PRIu64 " bytes, %10" PRIu64 " bytes/s\n"
+            "received: %8" PRIu64 " packets, %10" PRIu64 " bytes, %10" PRIu64 " bytes/s\n",
+            summary.m_sentPackets, summary.m_sentOctets, summary.m_sentOctets / duration,
+            summary.m_receivedPackets, summary.m_receivedOctets, summary.m_receivedOctets / duration);
     }
     catch (const cSocketException& e)
     {
@@ -141,4 +214,6 @@ void cClient::threadFunc ()
             Console::PrintError   ("%s\n", e.what()) :
             Console::PrintVerbose ("%s\n", e.what());
     }
+
+    m_evTerminated.send();
 }
