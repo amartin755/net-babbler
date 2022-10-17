@@ -16,12 +16,15 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <poll.h>
 #include <cstring>
 #include "application.hpp"
 #include "client.hpp"
 #include "tcplistener.hpp"
+#include "event.hpp"
+#include "signal.hpp"
 
-volatile std::sig_atomic_t cApplication::sigIntStatus;
+
 
 cApplication::cApplication(const char* name, const char* brief, const char* usage, const char* description)
 : cCmdlineApp (name, brief, usage, description)
@@ -113,6 +116,8 @@ int cApplication::execute (const std::list<std::string>& args)
             return -2;
         }
 
+        cSignal sigInt (SIGINT);
+        cSignal sigAlarm (SIGALRM);
         cEvent evClientTerminated;
         std::list<cClient> clients;
         for (int n = 0; n < m_options.clientConnections; n++)
@@ -122,20 +127,48 @@ int cApplication::execute (const std::list<std::string>& args)
                 (unsigned)m_options.sockBufSize);
         }
 
-        int n = 0;
-        while (n++ != m_options.clientConnections)
+        int runningClientThreads = m_options.clientConnections;
+        struct pollfd pollfds[4];
+        pollfds[0].fd = sigInt;
+        pollfds[1].fd = evClientTerminated;
+        pollfds[2].fd = STDIN_FILENO;
+        pollfds[3].fd = sigAlarm;
+        pollfds[0].events = POLLIN;
+        pollfds[1].events = POLLIN;
+        pollfds[2].events = POLLIN;
+        pollfds[3].events = POLLIN;
+alarm (4);
+        while ((runningClientThreads > 0) &&
+            (poll (pollfds, sizeof (pollfds) / sizeof (pollfds[0]), -1) > 0))
         {
-            evClientTerminated.wait ();
-            Console::PrintError ("bin weg\n");
-
+            if (pollfds[0].revents & POLLIN)
+            {
+                sigInt.wait();
+                Console::PrintError ("SIGINT\n");
+                for (auto &cl : clients)
+                {
+                    cl.terminate ();
+                }
+            }
+            if (pollfds[1].revents & POLLIN)
+            {
+                evClientTerminated.wait ();
+                runningClientThreads--;
+                Console::PrintError ("cevent\n");
+            }
+            if (pollfds[2].revents & POLLIN)
+            {
+                Console::PrintError ("stdin\n");
+            }
+            if (pollfds[3].revents & POLLIN)
+            {
+                sigAlarm.wait ();
+alarm (4);
+                Console::PrintError ("SIGALARM\n");
+            }
         }
-        Console::PrintError ("Feierabend\n");
 
-//        cClient client(*args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
-//            interval_us, (unsigned)m_options.count, (unsigned)m_options.time,
-//            (unsigned)m_options.sockBufSize);
-//        sleep (10);
-//        client.finish();
+        Console::PrintError ("Feierabend\n");
 
     }
     else
@@ -144,15 +177,6 @@ int cApplication::execute (const std::list<std::string>& args)
     }
 
     return 0;
-}
-
-void cApplication::sigintHandler (int signal)
-{
-    if (signal == SIGINT)
-    {
-            Console::PrintError ("X\n");
-        sigIntStatus++;
-    }
 }
 
 

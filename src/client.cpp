@@ -59,7 +59,7 @@ cClient::~cClient ()
     close (m_evfd);
 }
 
-void cClient::finish ()
+void cClient::terminate ()
 {
     uint64_t val = 1;
     write (m_evfd, &val, sizeof(val));

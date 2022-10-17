@@ -32,7 +32,7 @@ public:
         uint16_t localPort, uint64_t delay, unsigned count, unsigned time,
         unsigned socketBufSize);
     ~cClient ();
-    void finish ();
+    void terminate ();
 
     void threadFunc ();
 
