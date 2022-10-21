@@ -37,6 +37,7 @@ struct appOptions
     int          time;
     int          sockBufSize;
     int          clientConnections;
+    int          statusUpdateTime;
 
     appOptions () :
         serverIP (nullptr),
@@ -46,7 +47,8 @@ struct appOptions
         count (0),
         time (0),
         sockBufSize (1024*64),
-        clientConnections (1)
+        clientConnections (1),
+        statusUpdateTime (3)
     {
     }
 };

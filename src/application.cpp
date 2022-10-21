@@ -18,6 +18,8 @@
 
 #include <poll.h>
 #include <cstring>
+#include <algorithm>
+#include "bug.hpp"
 #include "application.hpp"
 #include "client.hpp"
 #include "tcplistener.hpp"
@@ -45,6 +47,8 @@ cApplication::cApplication(const char* name, const char* brief, const char* usag
             "Set internal buffer for send/receive to BYTES (default 64k)", &m_options.sockBufSize);
     addCmdLineOption (true, 'n', nullptr, "CONNECTIONS",
             "Number of parallel conntections to server.", &m_options.clientConnections);
+    addCmdLineOption (true, 's', "status", "SECONDS",
+            "Print every SECONDS periodic status (default 3s).", &m_options.statusUpdateTime);
 }
 
 cApplication::~cApplication ()
@@ -89,17 +93,6 @@ int cApplication::execute (const std::list<std::string>& args)
         Console::PrintError ("Invalid socket buffer size '%d'\n", m_options.sockBufSize);
         return -2;
     }
-/*
-    struct sigaction act;
-    std::memset (&act, 0, sizeof(act));
-    act.sa_handler = sigintHandler;
-    act.sa_flags = 0;
-    if (sigaction (SIGINT, &act, NULL) == -1)
-    {
-        return -3;
-    }
-*/
-//    std::signal (SIGINT, sigintHandler);
 
     if (!isServer)
     {
@@ -128,6 +121,8 @@ int cApplication::execute (const std::list<std::string>& args)
         }
 
         int runningClientThreads = m_options.clientConnections;
+        int remainingTime = m_options.time;
+        int ticks = m_options.statusUpdateTime;
         struct pollfd pollfds[4];
         pollfds[0].fd = sigInt;
         pollfds[1].fd = evClientTerminated;
@@ -137,18 +132,38 @@ int cApplication::execute (const std::list<std::string>& args)
         pollfds[1].events = POLLIN;
         pollfds[2].events = POLLIN;
         pollfds[3].events = POLLIN;
-alarm (4);
+
+        if (m_options.time)
+            ticks = std::min (remainingTime, m_options.statusUpdateTime);
+
+        alarm ((unsigned)ticks);
+
         while ((runningClientThreads > 0) &&
             (poll (pollfds, sizeof (pollfds) / sizeof (pollfds[0]), -1) > 0))
         {
+            bool terminate = false;
+            bool printStatus = false;
+
+            if (pollfds[3].revents & POLLIN)
+            {
+                sigAlarm.wait ();
+                printStatus = ticks == m_options.statusUpdateTime;
+                if (m_options.time)
+                {
+                    remainingTime -= ticks;
+                    BUG_ON (remainingTime < 0);
+                    ticks = std::min (remainingTime, m_options.statusUpdateTime);
+                    if (remainingTime <= 0)
+                        terminate = true;
+                }
+                alarm ((unsigned)ticks);
+                Console::PrintError ("SIGALARM\n");
+            }
             if (pollfds[0].revents & POLLIN)
             {
                 sigInt.wait();
+                terminate = true;
                 Console::PrintError ("SIGINT\n");
-                for (auto &cl : clients)
-                {
-                    cl.terminate ();
-                }
             }
             if (pollfds[1].revents & POLLIN)
             {
@@ -160,13 +175,44 @@ alarm (4);
             {
                 Console::PrintError ("stdin\n");
             }
-            if (pollfds[3].revents & POLLIN)
+
+            if (terminate)
             {
-                sigAlarm.wait ();
-alarm (4);
-                Console::PrintError ("SIGALARM\n");
+                for (auto &cl : clients)
+                {
+                    cl.terminate ();
+                }
+            }
+            if (printStatus)
+            {
+                Console::PrintError ("---Status\n");
+                printStatus = false;
             }
         }
+        cStats summaryAll;
+        unsigned durationAll = 0;
+        int n = 1;
+        for (auto &cl : clients)
+        {
+            cStats summary;
+            unsigned duration = cl.statistics (summary);
+            Console::Print (
+                "------ %d ------\n"
+                "sent:     %8" PRIuFAST64 " packets, %10" PRIuFAST64 " bytes, %10" PRIuFAST64 " bytes/s\n"
+                "received: %8" PRIuFAST64 " packets, %10" PRIuFAST64 " bytes, %10" PRIuFAST64 " bytes/s\n",
+                n++, summary.m_sentPackets, summary.m_sentOctets, summary.m_sentOctets / duration * 1000,
+                summary.m_receivedPackets, summary.m_receivedOctets, summary.m_receivedOctets / duration * 1000);
+
+            summaryAll  += summary;
+            durationAll += duration;
+        }
+        durationAll /= clients.size();
+        Console::Print (
+            "-------------------------------------\n"
+            "sent:     %8" PRIuFAST64 " packets, %10" PRIuFAST64 " bytes, %10" PRIuFAST64 " bytes/s\n"
+            "received: %8" PRIuFAST64 " packets, %10" PRIuFAST64 " bytes, %10" PRIuFAST64 " bytes/s\n",
+            summaryAll.m_sentPackets, summaryAll.m_sentOctets, summaryAll.m_sentOctets / durationAll * 1000,
+            summaryAll.m_receivedPackets, summaryAll.m_receivedOctets, summaryAll.m_receivedOctets / durationAll * 1000);
 
         Console::PrintError ("Feierabend\n");
 

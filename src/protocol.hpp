@@ -26,8 +26,10 @@
 #include <random>
 #include <chrono>
 #include <thread>
+#include <mutex>
 
 #include "socket.hpp"
+#include "stats.hpp"
 
 class cProtocolException : public std::runtime_error
 {
@@ -102,38 +104,6 @@ private:
 //    uint8_t data[];
 };
 
-class cStats
-{
-public:
-    cStats () : m_sentPackets(0), m_sentOctets(0), m_receivedPackets(0), m_receivedOctets(0)
-    {
-    }
-
-    cStats operator+ (const cStats& val) const
-    {
-        cStats result;
-        result.m_sentPackets     = m_sentPackets     + val.m_sentPackets;
-        result.m_sentOctets      = m_sentOctets      + val.m_sentOctets;
-        result.m_receivedPackets = m_receivedPackets + val.m_receivedPackets;
-        result.m_receivedOctets  = m_receivedOctets  + val.m_receivedOctets;
-        return result;
-    }
-    cStats operator- (const cStats& val) const
-    {
-        cStats result;
-        result.m_sentPackets     = m_sentPackets     - val.m_sentPackets;
-        result.m_sentOctets      = m_sentOctets      - val.m_sentOctets;
-        result.m_receivedPackets = m_receivedPackets - val.m_receivedPackets;
-        result.m_receivedOctets  = m_receivedOctets  - val.m_receivedOctets;
-        return result;
-    }
-
-    uint64_t m_sentPackets;
-    uint64_t m_sentOctets;
-    uint64_t m_receivedPackets;
-    uint64_t m_receivedOctets;
-};
-
 class cBabblerProtocol
 {
 public:
@@ -192,11 +162,11 @@ private:
             for (; sent < totalLen && p < (m_buf + m_bufsize); sent++)
                 *p++ = incr ? ++counter : --counter;
 
-            m_stats.m_sentOctets += (uint64_t)m_socket.send (m_buf, p - m_buf);
-            m_stats.m_sentPackets++;
-            p = m_buf;
+            uint64_t sentLen = (uint64_t)m_socket.send (m_buf, p - m_buf);
+            updateTransmitStats (sentLen, 1);
         }
     }
+
     uint64_t receive (bool& isRequest, uint32_t& options)
     {
         // first try to at least receive the cProtocolHeader
@@ -210,9 +180,7 @@ private:
         if (!isRequest && !h->isResponse())
             throw cProtocolException ("Unknown packet type");
 
-        m_stats.m_receivedOctets += (rcvLen);
-        m_stats.m_receivedPackets++;
-
+        updateReceiveStats (rcvLen, 1);
 
         const uint32_t len    = h->getLength();
         const uint64_t seq    = h->getSequence();
@@ -247,11 +215,27 @@ private:
         }
     }
 
+    void updateTransmitStats (uint64_t sentOctets, uint64_t sentPackets)
+    {
+        m_statsLock.lock ();
+        m_stats.m_sentOctets  += sentOctets;
+        m_stats.m_sentPackets += sentPackets;
+        m_statsLock.unlock ();
+    }
+    void updateReceiveStats (uint64_t receivedOctets, uint64_t receivedPackets)
+    {
+        m_statsLock.lock ();
+        m_stats.m_receivedOctets  += receivedOctets;
+        m_stats.m_receivedPackets += receivedPackets;
+        m_statsLock.unlock ();
+    }
+
 private:
     cSocket& m_socket;
     const size_t m_bufsize;
     uint8_t* m_buf;
     cStats m_stats;
+    std::mutex m_statsLock;
 };
 
 

@@ -24,6 +24,8 @@
 #include <atomic>
 
 #include "event.hpp"
+#include "stats.hpp"
+
 
 class cClient
 {
@@ -33,6 +35,12 @@ public:
         unsigned socketBufSize);
     ~cClient ();
     void terminate ();
+
+    unsigned statistics (cStats& stats) const
+    {
+        stats = m_stats;
+        return m_duration;
+    }
 
     void threadFunc ();
 
@@ -48,6 +56,8 @@ private:
     unsigned      m_time;
     unsigned      m_socketBufSize;
     int           m_evfd;
+    cStats        m_stats;
+    unsigned      m_duration;
 };
 
 #endif

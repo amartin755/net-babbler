@@ -151,16 +151,17 @@ void cClient::threadFunc ()
     printf("Local port : %u\n", myPort);
 
 
+    using namespace std::chrono;
+    cSocket sock (sfd, m_evfd);
+    cRequestor requestor (sock, m_socketBufSize, 1230, 123, 12340, 1234, m_delay);
+    auto start = steady_clock::now();
+
     try
     {
-        using namespace std::chrono;
 
         // TODO pattern: fixed size, random range (as today), sweep
-        cSocket sock (sfd, m_evfd);
-        cRequestor requestor (sock, m_socketBufSize, 1230, 123, 12340, 1234, m_delay);
         bool infinite = m_count == 0;
         cStats lastStats;
-        auto start = steady_clock::now();
         auto lastStatus = start;
 
         while (!m_terminate)
@@ -172,7 +173,7 @@ void cClient::threadFunc ()
             {
                 cStats currStats  = requestor.getStats ();
                 cStats deltaStats = currStats - lastStats;
-
+/*
                 Console::Print (
                     "[%d sec]  "
                     "sent/received: %" PRIu64 "/%" PRIu64 " packets, %" PRIu64 "/%" PRIu64 " bytes, "
@@ -181,32 +182,14 @@ void cClient::threadFunc ()
                     deltaStats.m_sentPackets, deltaStats.m_receivedPackets,
                     deltaStats.m_sentOctets, deltaStats.m_receivedOctets,
                     deltaStats.m_sentOctets / 5, deltaStats.m_receivedOctets / 5);
-
+*/
                 lastStats = currStats;
                 lastStatus = now;
             }
 
             if (!infinite && --m_count == 0)
                 m_terminate = true;
-
-            if (m_time)
-            {
-                auto now = steady_clock::now();
-                auto elapsedSeconds = duration_cast<seconds>(now - start);
-                if (elapsedSeconds.count () >= m_time)
-                    m_terminate = true;
-            }
         }
-        auto end = steady_clock::now();
-        auto duration = duration_cast<seconds>(end - start).count();
-        const cStats& summary = requestor.getStats ();
-
-        Console::Print (
-            "\n------ statistic ------\n"
-            "sent:     %8" PRIu64 " packets, %10" PRIu64 " bytes, %10" PRIu64 " bytes/s\n"
-            "received: %8" PRIu64 " packets, %10" PRIu64 " bytes, %10" PRIu64 " bytes/s\n",
-            summary.m_sentPackets, summary.m_sentOctets, summary.m_sentOctets / duration,
-            summary.m_receivedPackets, summary.m_receivedOctets, summary.m_receivedOctets / duration);
     }
     catch (const cSocketException& e)
     {
@@ -214,6 +197,10 @@ void cClient::threadFunc ()
             Console::PrintError   ("%s\n", e.what()) :
             Console::PrintVerbose ("%s\n", e.what());
     }
+
+    auto end = steady_clock::now();
+    m_duration = duration_cast<milliseconds>(end - start).count();
+    m_stats    = requestor.getStats ();
 
     m_evTerminated.send();
 }
