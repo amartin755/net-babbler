@@ -18,7 +18,7 @@
 
 #include <poll.h>
 #include <cstring>
-#include <algorithm>
+#include <sstream>
 #include "bug.hpp"
 #include "application.hpp"
 #include "client.hpp"
@@ -116,7 +116,7 @@ int cApplication::execute (const std::list<std::string>& args)
         for (int n = 0; n < m_options.clientConnections; n++)
         {
             clients.emplace_back (evClientTerminated, *args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
-                interval_us, (unsigned)m_options.count, (unsigned)m_options.time,
+                interval_us, (unsigned)m_options.count,
                 (unsigned)m_options.sockBufSize);
         }
 
@@ -157,19 +157,16 @@ int cApplication::execute (const std::list<std::string>& args)
                         terminate = true;
                 }
                 alarm ((unsigned)ticks);
-                Console::PrintError ("SIGALARM\n");
             }
             if (pollfds[0].revents & POLLIN)
             {
                 sigInt.wait();
                 terminate = true;
-                Console::PrintError ("SIGINT\n");
             }
             if (pollfds[1].revents & POLLIN)
             {
                 evClientTerminated.wait ();
                 runningClientThreads--;
-                Console::PrintError ("cevent\n");
             }
             if (pollfds[2].revents & POLLIN)
             {
@@ -185,8 +182,15 @@ int cApplication::execute (const std::list<std::string>& args)
             }
             if (printStatus)
             {
-                Console::PrintError ("---Status\n");
                 printStatus = false;
+
+                for (auto &cl : clients)
+                {
+                    cStats currStats;
+                    unsigned duration = cl.statistics (currStats, false);
+                    Console::Print ("------ %u ------\n", duration);
+                    printStatistics (currStats, duration);
+                }
             }
         }
         cStats summaryAll;
@@ -195,27 +199,16 @@ int cApplication::execute (const std::list<std::string>& args)
         for (auto &cl : clients)
         {
             cStats summary;
-            unsigned duration = cl.statistics (summary);
-            Console::Print (
-                "------ %d ------\n"
-                "sent:     %8" PRIuFAST64 " packets, %10" PRIuFAST64 " bytes, %10" PRIuFAST64 " bytes/s\n"
-                "received: %8" PRIuFAST64 " packets, %10" PRIuFAST64 " bytes, %10" PRIuFAST64 " bytes/s\n",
-                n++, summary.m_sentPackets, summary.m_sentOctets, summary.m_sentOctets / duration * 1000,
-                summary.m_receivedPackets, summary.m_receivedOctets, summary.m_receivedOctets / duration * 1000);
+            unsigned duration = cl.statistics (summary, true);
+            Console::Print ("------ %d ------\n", n++);
+            printStatistics (summary, duration);
 
             summaryAll  += summary;
             durationAll += duration;
         }
-        durationAll /= clients.size();
-        Console::Print (
-            "-------------------------------------\n"
-            "sent:     %8" PRIuFAST64 " packets, %10" PRIuFAST64 " bytes, %10" PRIuFAST64 " bytes/s\n"
-            "received: %8" PRIuFAST64 " packets, %10" PRIuFAST64 " bytes, %10" PRIuFAST64 " bytes/s\n",
-            summaryAll.m_sentPackets, summaryAll.m_sentOctets, summaryAll.m_sentOctets / durationAll * 1000,
-            summaryAll.m_receivedPackets, summaryAll.m_receivedOctets, summaryAll.m_receivedOctets / durationAll * 1000);
 
-        Console::PrintError ("Feierabend\n");
-
+        Console::Print ("-------------------------------------\n");
+        printStatistics (summaryAll, durationAll / clients.size());
     }
     else
     {
@@ -224,6 +217,70 @@ int cApplication::execute (const std::list<std::string>& args)
 
     return 0;
 }
+
+std::string kkk (int_fast64_t value, bool binary)
+{
+    std::ostringstream out;
+    out.precision (2);
+
+    if (!binary)
+    {
+        if (value > 1000000000)
+        {
+            out << std::fixed << (value / 1000000000.0) << " G";
+        }
+        else if (value > 1000000)
+        {
+            out << std::fixed << (value / 1000000.0) << " M";
+        }
+        else if (value > 1000)
+        {
+            out << std::fixed << (value / 1000.0) << " k";
+        }
+        else
+        {
+            out << value;
+        }
+    }
+    else
+    {
+        if (value > 1024*1024*1024)
+        {
+            out << std::fixed << value / (double)(1024*1024*1024) << " Gi";
+        }
+        else if (value > 1024*1024)
+        {
+            out << std::fixed << value / (double)(1024*1024) << " Mi";
+        }
+        else if (value > 1024)
+        {
+            out << std::fixed << value / 1024.0 << " Ki";
+        }
+        else
+        {
+            out << value;
+        }
+    }
+    return out.str();
+}
+
+void cApplication::printStatistics (const cStats& stats, unsigned duration) const
+{
+#if 0
+    Console::Print (
+        "sent:     %8" PRIuFAST64 " packets, %10" PRIuFAST64 " bytes, %10" PRIuFAST64 " bytes/s\n"
+        "received: %8" PRIuFAST64 " packets, %10" PRIuFAST64 " bytes, %10" PRIuFAST64 " bytes/s\n",
+        stats.m_sentPackets, stats.m_sentOctets, stats.m_sentOctets / duration * 1000,
+        stats.m_receivedPackets, stats.m_receivedOctets, stats.m_receivedOctets / duration * 1000);
+#endif
+
+    Console::Print (
+        "sent:     %8" PRIuFAST64 " packets, %sB, %sbit/s\n"
+        "received: %8" PRIuFAST64 " packets, %sB, %sbit/s\n",
+        stats.m_sentPackets, kkk(stats.m_sentOctets, true).c_str(), kkk(stats.m_sentOctets * 8 * 1000 / duration, false).c_str(),
+        stats.m_receivedPackets, kkk(stats.m_receivedOctets, true).c_str(), kkk(stats.m_receivedOctets * 8 * 1000 / duration, false).c_str());
+}
+
 
 
 int main(int argc, char* argv[])

@@ -28,6 +28,7 @@
 #include <thread>
 #include <mutex>
 
+#include "bug.hpp"
 #include "socket.hpp"
 #include "stats.hpp"
 
@@ -70,10 +71,10 @@ struct cProtocolHeader
     {
         uint32_t sum = 0;
         uint8_t *p = reinterpret_cast<uint8_t*>(this);
-        do
+        while (p < (uint8_t*)&checksum)
         {
-            sum += *p;
-        } while (p++ < (uint8_t*)&checksum);
+            sum += *p++;
+        }
         return sum;
     }
 

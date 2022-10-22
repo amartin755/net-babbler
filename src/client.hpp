@@ -22,26 +22,23 @@
 #include <string>
 #include <thread>
 #include <atomic>
+#include <chrono>
 
 #include "event.hpp"
 #include "stats.hpp"
 
+class cRequestor;
 
 class cClient
 {
 public:
     cClient (cEvent& evTerminated, const std::string &server, uint16_t remotePort,
-        uint16_t localPort, uint64_t delay, unsigned count, unsigned time,
+        uint16_t localPort, uint64_t delay, unsigned count,
         unsigned socketBufSize);
     ~cClient ();
     void terminate ();
 
-    unsigned statistics (cStats& stats) const
-    {
-        stats = m_stats;
-        return m_duration;
-    }
-
+    unsigned statistics (cStats& stats, bool summary);
     void threadFunc ();
 
 private:
@@ -56,8 +53,13 @@ private:
     unsigned      m_time;
     unsigned      m_socketBufSize;
     int           m_evfd;
-    cStats        m_stats;
-    unsigned      m_duration;
+    cRequestor*   m_requestor;
+
+    std::chrono::time_point<std::chrono::steady_clock> m_startTime;
+    unsigned      m_finishedTime;
+    cStats        m_lastStats;
+    unsigned      m_lastStatsTime;
+
 };
 
 #endif

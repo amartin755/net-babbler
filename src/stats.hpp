@@ -55,6 +55,14 @@ public:
         m_receivedOctets  += val.m_receivedOctets;
         return *this;
     }
+    cStats& operator-= (const cStats& val)
+    {
+        m_sentPackets     -= val.m_sentPackets;
+        m_sentOctets      -= val.m_sentOctets;
+        m_receivedPackets -= val.m_receivedPackets;
+        m_receivedOctets  -= val.m_receivedOctets;
+        return *this;
+    }
 
     int_fast64_t m_sentPackets;
     int_fast64_t m_sentOctets;

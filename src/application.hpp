@@ -53,6 +53,7 @@ struct appOptions
     }
 };
 
+class cStats;
 
 class cApplication : public cCmdlineApp
 {
@@ -63,9 +64,7 @@ public:
     int execute (const std::list<std::string>& args);
 
 private:
-    static void sigintHandler (int signal);
-    static volatile std::sig_atomic_t sigIntStatus;
-
+    void printStatistics (const cStats&, unsigned duration) const;
     appOptions m_options;
 };
 

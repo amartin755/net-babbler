@@ -33,7 +33,7 @@
 #include "protocol.hpp"
 
 cClient::cClient (cEvent& evTerminated, const std::string &server, uint16_t remotePort,
-    uint16_t localPort, uint64_t delay, unsigned count, unsigned time, unsigned socketBufSize)
+    uint16_t localPort, uint64_t delay, unsigned count, unsigned socketBufSize)
     : m_evTerminated (evTerminated),
       m_terminate(false),
       m_thread (nullptr),
@@ -42,8 +42,8 @@ cClient::cClient (cEvent& evTerminated, const std::string &server, uint16_t remo
       m_localPort (localPort),
       m_delay (delay),
       m_count (count),
-      m_time (time),
-      m_socketBufSize (socketBufSize)
+      m_socketBufSize (socketBufSize),
+      m_requestor (nullptr)
 {
     m_evfd = eventfd (0, EFD_SEMAPHORE);
     if (m_evfd == -1)
@@ -55,8 +55,9 @@ cClient::~cClient ()
 {
     if (m_thread)
         m_thread->join ();
-
+    delete m_thread;
     close (m_evfd);
+    delete m_requestor;
 }
 
 void cClient::terminate ()
@@ -87,6 +88,35 @@ void print_ips(struct addrinfo *lst) {
             printf("IP: %s\n", ipv6);
         }
     }
+}
+
+unsigned cClient::statistics (cStats& stats, bool summary)
+{
+    using namespace std::chrono;
+    unsigned duration;
+
+    auto now = steady_clock::now();
+
+    stats = m_requestor->getStats();
+    duration = duration_cast<milliseconds>(now - m_startTime).count();
+
+    if (!summary)
+    {
+        unsigned lastTime   = m_lastStatsTime;
+        cStats   lastStats  = m_lastStats;
+        m_lastStatsTime     = duration;
+        m_lastStats         = stats;
+        stats    -= lastStats;
+        duration -= lastTime;
+    }
+    else
+    {
+        m_lastStatsTime = duration;
+        m_lastStats     = stats;
+        if (m_finishedTime)
+            duration = m_finishedTime;
+    }
+    return duration;
 }
 
 void cClient::threadFunc ()
@@ -153,39 +183,18 @@ void cClient::threadFunc ()
 
     using namespace std::chrono;
     cSocket sock (sfd, m_evfd);
-    cRequestor requestor (sock, m_socketBufSize, 1230, 123, 12340, 1234, m_delay);
-    auto start = steady_clock::now();
+    m_requestor = new cRequestor (sock, m_socketBufSize, 1230, 123, 12340, 1234, m_delay);
+    m_startTime = steady_clock::now();
 
     try
     {
 
         // TODO pattern: fixed size, random range (as today), sweep
         bool infinite = m_count == 0;
-        cStats lastStats;
-        auto lastStatus = start;
 
         while (!m_terminate)
         {
-            requestor.doJob ();
-
-            auto now = steady_clock::now();
-            if (duration_cast<seconds>(now - lastStatus).count() >= 5)
-            {
-                cStats currStats  = requestor.getStats ();
-                cStats deltaStats = currStats - lastStats;
-/*
-                Console::Print (
-                    "[%d sec]  "
-                    "sent/received: %" PRIu64 "/%" PRIu64 " packets, %" PRIu64 "/%" PRIu64 " bytes, "
-                    "%" PRIu64 "/%" PRIu64 "  bytes/sec\n",
-                    duration_cast<seconds>(now-start).count(),
-                    deltaStats.m_sentPackets, deltaStats.m_receivedPackets,
-                    deltaStats.m_sentOctets, deltaStats.m_receivedOctets,
-                    deltaStats.m_sentOctets / 5, deltaStats.m_receivedOctets / 5);
-*/
-                lastStats = currStats;
-                lastStatus = now;
-            }
+            m_requestor->doJob ();
 
             if (!infinite && --m_count == 0)
                 m_terminate = true;
@@ -197,10 +206,8 @@ void cClient::threadFunc ()
             Console::PrintError   ("%s\n", e.what()) :
             Console::PrintVerbose ("%s\n", e.what());
     }
-
     auto end = steady_clock::now();
-    m_duration = duration_cast<milliseconds>(end - start).count();
-    m_stats    = requestor.getStats ();
+    m_finishedTime = duration_cast<milliseconds>(end - m_startTime).count();
 
     m_evTerminated.send();
 }
