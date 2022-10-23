@@ -27,6 +27,7 @@
 #include <stdexcept>
 #include <string>
 #include <list>
+#include <string>
 #include <cstring>
 
 
@@ -74,6 +75,8 @@ public:
     };
     static void getaddrinfo (const std::string& node, uint16_t remotePort,
         int family, int sockType, int protocol, std::list<info> &result);
+    std::string getsockname ();
+    static std::string inet_ntop (const struct sockaddr* addr);
 
     bool isValid () const
     {

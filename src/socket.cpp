@@ -17,6 +17,8 @@
  */
 
 #include <unistd.h>
+#include <arpa/inet.h>
+#include <sstream>
 
 #include "bug.hpp"
 #include "socket.hpp"
@@ -180,6 +182,48 @@ void cSocket::getaddrinfo (const std::string& node, uint16_t remotePort,
     }
     freeaddrinfo (res);
 }
+
+std::string cSocket::getsockname ()
+{
+    std::ostringstream out;
+    struct sockaddr_in addr;
+    char _ip[INET6_ADDRSTRLEN];
+    socklen_t len = sizeof(addr);
+
+    if (::getsockname(m_fd, (struct sockaddr *) &addr, &len))
+    {
+        throwException (errno);
+    }
+    if (!::inet_ntop(addr.sin_family, &addr.sin_addr, _ip, sizeof(_ip)))
+    {
+        throwException (errno);
+    }
+
+    out << _ip << ":" << ntohs(addr.sin_port);
+    return out.str();
+}
+
+std::string cSocket::inet_ntop (const struct sockaddr* addr)
+{
+    const char* ret = "";
+    if (addr->sa_family == AF_INET)
+    {
+        char ip[INET_ADDRSTRLEN];
+        ret = ::inet_ntop(AF_INET, &((struct sockaddr_in *)addr)->sin_addr , ip, sizeof(ip));
+    }
+    if (addr->sa_family == AF_INET6)
+    {
+        char ip[INET6_ADDRSTRLEN];
+        ret = ::inet_ntop(AF_INET, &((struct sockaddr_in6 *)addr)->sin6_addr , ip, sizeof(ip));
+    }
+
+    if (!ret)
+    {
+        throwException (errno);
+    }
+    return ret;
+}
+
 
 
 void cSocket::throwException (int err)

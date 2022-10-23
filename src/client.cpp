@@ -122,61 +122,6 @@ unsigned cClient::statistics (cStats& stats, bool summary)
 
 void cClient::threadFunc ()
 {
-#if 0
-    struct addrinfo hints;
-    struct addrinfo *result, *rp;
-
-    std::memset (&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
-    hints.ai_socktype = SOCK_STREAM; /* Datagram socket */
-
-    int s = getaddrinfo (m_server.c_str (), std::to_string(m_remotePort).c_str(), &hints, &result);
-    if (s != 0)
-    {
-        Console::PrintError ("%s\n", gai_strerror(s));
-        return;
-    }
-
-    int sfd = -1;
-    for (rp = result; rp != NULL; rp = rp->ai_next)
-    {
-        Console::PrintError ("fam %d  type %d proto %d\n", rp->ai_family, rp->ai_socktype,
-                    rp->ai_protocol);
-
-        sfd = socket(rp->ai_family, rp->ai_socktype,
-                    rp->ai_protocol);
-        if (sfd == -1)
-            continue;
-
-        if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1)
-            break;                  /* Success */
-
-        close(sfd);
-    }
-    print_ips (result);
-    freeaddrinfo(result);
-
-    if (!rp)
-    {               /* No address succeeded */
-        Console::PrintError ("Could not connect to %s (%s)\n", m_server.c_str(), std::strerror(errno));
-        return;
-    }
-
-        // Get my ip address and port
-    struct sockaddr_in my_addr;
-    char myIP[16];
-    unsigned int myPort;
-    bzero(&my_addr, sizeof(my_addr));
-    socklen_t len = sizeof(my_addr);
-    getsockname(sfd, (struct sockaddr *) &my_addr, &len);
-    inet_ntop(AF_INET, &my_addr.sin_addr, myIP, sizeof(myIP));
-    myPort = ntohs(my_addr.sin_port);
-
-    printf("Local ip address: %s\n", myIP);
-    printf("Local port : %u\n", myPort);
-
-#endif
-
     using namespace std::chrono;
     cSocket sock;
     m_requestor = new cRequestor (sock, m_socketBufSize, 1230, 123, 12340, 1234, m_delay);
@@ -194,6 +139,11 @@ void cClient::threadFunc ()
                 s.connect ((sockaddr*)&addrInfo.addr, addrInfo.addrlen);
                 sock = std::move(s);
                 connected = true;
+
+                Console::Print ("Connected to %s:%u via %s\n",
+                    sock.inet_ntop ((sockaddr*)&addrInfo.addr).c_str(),
+                    m_remotePort,
+                    sock.getsockname().c_str());
             }
             catch (const cSocketException& e)
             {
