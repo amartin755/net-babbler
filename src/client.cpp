@@ -97,7 +97,7 @@ unsigned cClient::statistics (cStats& stats, bool summary)
 
     auto now = steady_clock::now();
 
-    stats = m_requestor->getStats();
+    m_requestor->getStats (stats);
     duration = duration_cast<milliseconds>(now - m_startTime).count();
 
     if (!summary)

@@ -145,9 +145,11 @@ public:
         if (!isRequest)
             throw cProtocolException ("Unexpected packet type");
     }
-    const cStats& getStats () const
+    void getStats (cStats& stats)
     {
-        return m_stats;
+        m_statsLock.lock ();
+        stats = m_stats;
+        m_statsLock.unlock ();
     }
 
 private:
@@ -275,9 +277,9 @@ public:
             std::this_thread::sleep_for (std::chrono::microseconds (m_delay));
     }
 
-    const cStats& getStats () const
+    void getStats (cStats& stats)
     {
-        return cBabblerProtocol::getStats ();
+        cBabblerProtocol::getStats (stats);
     }
 
 private:

@@ -18,13 +18,13 @@
 
 #include <poll.h>
 #include <cstring>
-#include <sstream>
 #include "bug.hpp"
 #include "application.hpp"
 #include "client.hpp"
 #include "tcplistener.hpp"
 #include "event.hpp"
 #include "signal.hpp"
+#include "valueformatter.hpp"
 
 
 
@@ -218,51 +218,6 @@ int cApplication::execute (const std::list<std::string>& args)
     return 0;
 }
 
-std::string kkk (int_fast64_t value, bool binary)
-{
-    std::ostringstream out;
-    out.precision (2);
-
-    if (!binary)
-    {
-        if (value > 1000000000)
-        {
-            out << std::fixed << (value / 1000000000.0) << " G";
-        }
-        else if (value > 1000000)
-        {
-            out << std::fixed << (value / 1000000.0) << " M";
-        }
-        else if (value > 1000)
-        {
-            out << std::fixed << (value / 1000.0) << " k";
-        }
-        else
-        {
-            out << value;
-        }
-    }
-    else
-    {
-        if (value > 1024*1024*1024)
-        {
-            out << std::fixed << value / (double)(1024*1024*1024) << " Gi";
-        }
-        else if (value > 1024*1024)
-        {
-            out << std::fixed << value / (double)(1024*1024) << " Mi";
-        }
-        else if (value > 1024)
-        {
-            out << std::fixed << value / 1024.0 << " Ki";
-        }
-        else
-        {
-            out << value;
-        }
-    }
-    return out.str();
-}
 
 void cApplication::printStatistics (const cStats& stats, unsigned duration) const
 {
@@ -277,8 +232,8 @@ void cApplication::printStatistics (const cStats& stats, unsigned duration) cons
     Console::Print (
         "sent:     %8" PRIuFAST64 " packets, %sB, %sbit/s\n"
         "received: %8" PRIuFAST64 " packets, %sB, %sbit/s\n",
-        stats.m_sentPackets, kkk(stats.m_sentOctets, true).c_str(), kkk(stats.m_sentOctets * 8 * 1000 / duration, false).c_str(),
-        stats.m_receivedPackets, kkk(stats.m_receivedOctets, true).c_str(), kkk(stats.m_receivedOctets * 8 * 1000 / duration, false).c_str());
+        stats.m_sentPackets, cValueFormatter::toHumanReadable(stats.m_sentOctets, true).c_str(), cValueFormatter::toHumanReadable(stats.m_sentOctets * 8 * 1000 / duration, false).c_str(),
+        stats.m_receivedPackets, cValueFormatter::toHumanReadable(stats.m_receivedOctets, true).c_str(), cValueFormatter::toHumanReadable(stats.m_receivedOctets * 8 * 1000 / duration, false).c_str());
 }
 
 
