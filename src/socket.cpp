@@ -21,6 +21,16 @@
 #include "bug.hpp"
 #include "socket.hpp"
 
+cSocket::cSocket () : m_fd (-1), m_evfd (-1), m_timeout_ms (-1)
+{
+    initPoll ();
+}
+
+cSocket::cSocket (cSocket&& obj)
+{
+    *this = std::move(obj);
+}
+
 cSocket::cSocket (int domain, int type, int protocol, int evfd, int timeout)
     : m_evfd (evfd), m_timeout_ms (timeout)
 {
@@ -40,18 +50,29 @@ cSocket::cSocket (int fd, int evfd, int timeout)
     initPoll ();
 }
 
+cSocket::~cSocket ()
+{
+    if (m_fd >= 0)
+        close (m_fd);
+}
+
+cSocket& cSocket::operator= (cSocket&& obj)
+{
+    std::memcpy (&m_pollfd, &obj.m_pollfd, sizeof (m_pollfd));
+    m_evfd       = obj.m_evfd;
+    m_timeout_ms = obj.m_timeout_ms;
+    m_fd         = obj.m_fd;
+
+    obj.m_fd = -1;
+    return *this;
+}
+
 void cSocket::initPoll ()
 {
     m_pollfd[0].fd = m_fd;
     m_pollfd[1].fd = m_evfd;
     m_pollfd[0].events = POLLIN;
     m_pollfd[1].events = POLLIN;
-}
-
-cSocket::~cSocket ()
-{
-    if (m_fd >= 0)
-        close (m_fd);
 }
 
 void cSocket::bind (const struct sockaddr *adr, socklen_t adrlen)
@@ -70,6 +91,13 @@ cSocket cSocket::accept (struct sockaddr *adr, socklen_t *adrlen)
     }
 
     return cSocket (ret);
+}
+
+void cSocket::connect (const struct sockaddr *adr, socklen_t adrlen)
+{
+    int ret = ::connect (m_fd, adr, adrlen);
+    if (ret)
+        throwException (errno);
 }
 
 ssize_t cSocket::recv (void *buf, size_t len, size_t atleast, int flags)
@@ -130,10 +158,39 @@ ssize_t cSocket::send (const void *buf, size_t len, int flags)
     return len;
 }
 
+void cSocket::getaddrinfo (const std::string& node, uint16_t remotePort,
+    int family, int sockType, int protocol, std::list<info>& result)
+{
+    struct addrinfo hints;
+    struct addrinfo *res, *rp;
+
+    std::memset (&hints, 0, sizeof (hints));
+    hints.ai_family   = family;
+    hints.ai_socktype = sockType;
+    hints.ai_protocol = protocol;
+
+    int s = ::getaddrinfo (node.c_str (), std::to_string(remotePort).c_str(), &hints, &res);
+    if (s != 0)
+    {
+        throwException (gai_strerror(s));
+    }
+    for (rp = res; rp != NULL; rp = rp->ai_next)
+    {
+        result.emplace_back (*rp);
+    }
+    freeaddrinfo (res);
+}
+
+
 void cSocket::throwException (int err)
 {
     if (err)
         throw cSocketException (err);
     else
         throw cSocketException ("Connection terminated", false);
+}
+
+void cSocket::throwException (const char* err)
+{
+    throw cSocketException (err, true);
 }

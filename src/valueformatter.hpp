@@ -26,10 +26,10 @@ class cValueFormatter
 {
 public:
     template <typename T>
-    static std::string toHumanReadable (T value, bool binary)
+    static std::string toHumanReadable (T value, bool binary, int precision = 2)
     {
         std::ostringstream out;
-        out.precision (2);
+        out.precision (precision);
 
         if (!binary)
         {

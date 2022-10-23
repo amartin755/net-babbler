@@ -43,7 +43,8 @@ cClient::cClient (cEvent& evTerminated, const std::string &server, uint16_t remo
       m_delay (delay),
       m_count (count),
       m_socketBufSize (socketBufSize),
-      m_requestor (nullptr)
+      m_requestor (nullptr),
+      m_lastStatsTime (0)
 {
     m_evfd = eventfd (0, EFD_SEMAPHORE);
     if (m_evfd == -1)
@@ -121,13 +122,7 @@ unsigned cClient::statistics (cStats& stats, bool summary)
 
 void cClient::threadFunc ()
 {
-/*
-    if (s < 0)
-    {
-        Console::PrintError ("Could not create client socket (%s)\n", std::strerror(errno));
-        return;
-    }
-*/
+#if 0
     struct addrinfo hints;
     struct addrinfo *result, *rp;
 
@@ -180,24 +175,50 @@ void cClient::threadFunc ()
     printf("Local ip address: %s\n", myIP);
     printf("Local port : %u\n", myPort);
 
+#endif
 
     using namespace std::chrono;
-    cSocket sock (sfd, m_evfd);
+    cSocket sock;
     m_requestor = new cRequestor (sock, m_socketBufSize, 1230, 123, 12340, 1234, m_delay);
-    m_startTime = steady_clock::now();
 
     try
     {
-
-        // TODO pattern: fixed size, random range (as today), sweep
-        bool infinite = m_count == 0;
-
-        while (!m_terminate)
+        bool connected = false;
+        std::list <cSocket::info> r;
+        cSocket::getaddrinfo (m_server, m_remotePort, AF_UNSPEC, SOCK_STREAM, 0, r);
+        for (const auto& addrInfo : r)
         {
-            m_requestor->doJob ();
+            try
+            {
+                cSocket s (addrInfo.family, addrInfo.socktype, addrInfo.protocol, m_evfd);
+                s.connect ((sockaddr*)&addrInfo.addr, addrInfo.addrlen);
+                sock = std::move(s);
+                connected = true;
+            }
+            catch (const cSocketException& e)
+            {
+                continue;
+            }
+            break;
+        }
 
-            if (!infinite && --m_count == 0)
-                m_terminate = true;
+        if (connected)
+        {
+            // TODO pattern: fixed size, random range (as today), sweep
+            bool infinite = m_count == 0;
+
+            m_startTime = steady_clock::now();
+            while (!m_terminate)
+            {
+                m_requestor->doJob ();
+
+                if (!infinite && --m_count == 0)
+                    m_terminate = true;
+            }
+        }
+        else
+        {
+            Console::PrintError ("Could not connect to %s\n", m_server.c_str());
         }
     }
     catch (const cSocketException& e)

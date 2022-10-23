@@ -19,12 +19,16 @@
 #ifndef SOCKET_HPP
 #define SOCKET_HPP
 
-#include <stdexcept>
-#include <string>
-#include <cstring>
-
 #include <sys/socket.h>
 #include <sys/poll.h>
+#include <sys/types.h>
+#include <netdb.h>
+
+#include <stdexcept>
+#include <string>
+#include <list>
+#include <cstring>
+
 
 // tcp: AF_INET/AF_INET6, SOCK_STREAM, 0
 // udp: AF_INET/AF_INET6, SOCK_DGRAM, 0
@@ -35,22 +39,49 @@
 class cSocket
 {
 public:
-    // no default and copy constructor
-/*    cSocket () = delete;
+    // no copy constructor and copy operator
     cSocket (const cSocket&) = delete;
-    cSocket& operator= (const cSocket&) = delete;
-    cSocket (cSocket&&) = default;
-*/
+    cSocket& operator=(const cSocket&) = delete;
+
+    cSocket ();
     cSocket (int domain, int type, int protocol, int evfd = -1, int timeout = -1);
     cSocket (int fd, int evfd = -1, int timeout = -1);
+    cSocket (cSocket&&);
     ~cSocket ();
+    cSocket& operator= (cSocket&& obj);
+
     void bind (const struct sockaddr *adr, socklen_t adrlen);
     cSocket accept (struct sockaddr * adr, socklen_t * adrlen);
+    void connect (const struct sockaddr *adr, socklen_t adrlen);
     ssize_t recv (void *buf, size_t len, size_t atleast = 0, int flags = 0);
     ssize_t send (const void *buf, size_t len, int flags = 0);
 
+    struct info
+    {
+        info (const struct addrinfo& info)
+        {
+            family = info.ai_family;
+            socktype = info.ai_socktype;
+            protocol = info.ai_protocol;
+            addrlen = info.ai_addrlen;
+            std::memcpy (&addr, info.ai_addr, addrlen);
+        }
+        int              family;
+        int              socktype;
+        int              protocol;
+        socklen_t        addrlen;
+        struct sockaddr_storage  addr;
+    };
+    static void getaddrinfo (const std::string& node, uint16_t remotePort,
+        int family, int sockType, int protocol, std::list<info> &result);
+
+    bool isValid () const
+    {
+        return m_fd >= 0;
+    }
 private:
-    void throwException (int err);
+    static void throwException (int err);
+    static void throwException (const char* err);
     void initPoll ();
 
 private:

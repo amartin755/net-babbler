@@ -228,7 +228,9 @@ void cApplication::printStatistics (const cStats& stats, unsigned duration) cons
         stats.m_sentPackets, stats.m_sentOctets, stats.m_sentOctets / duration * 1000,
         stats.m_receivedPackets, stats.m_receivedOctets, stats.m_receivedOctets / duration * 1000);
 #endif
-
+    // avoid divide by zero
+    if (!duration)
+        duration = 1;
     Console::Print (
         "sent:     %8" PRIuFAST64 " packets, %sB, %sbit/s\n"
         "received: %8" PRIuFAST64 " packets, %sB, %sbit/s\n",
