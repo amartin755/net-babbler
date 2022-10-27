@@ -186,20 +186,15 @@ void cSocket::getaddrinfo (const std::string& node, uint16_t remotePort,
 std::string cSocket::getsockname ()
 {
     std::ostringstream out;
-    struct sockaddr_in addr;
-    char _ip[INET6_ADDRSTRLEN];
+    struct sockaddr_storage addr;
     socklen_t len = sizeof(addr);
 
     if (::getsockname(m_fd, (struct sockaddr *) &addr, &len))
     {
         throwException (errno);
     }
-    if (!::inet_ntop(addr.sin_family, &addr.sin_addr, _ip, sizeof(_ip)))
-    {
-        throwException (errno);
-    }
 
-    out << _ip << ":" << ntohs(addr.sin_port);
+    out << inet_ntop((struct sockaddr *) &addr) << ":" << ntohs(((struct sockaddr_in6*)&addr)->sin6_port);
     return out.str();
 }
 
@@ -214,7 +209,7 @@ std::string cSocket::inet_ntop (const struct sockaddr* addr)
     if (addr->sa_family == AF_INET6)
     {
         char ip[INET6_ADDRSTRLEN];
-        ret = ::inet_ntop(AF_INET, &((struct sockaddr_in6 *)addr)->sin6_addr , ip, sizeof(ip));
+        ret = ::inet_ntop(AF_INET6, &((struct sockaddr_in6 *)addr)->sin6_addr , ip, sizeof(ip));
     }
 
     if (!ret)

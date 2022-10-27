@@ -38,6 +38,8 @@ struct appOptions
     int          sockBufSize;
     int          clientConnections;
     int          statusUpdateTime;
+    int          ipv4Only;
+    int          ipv6Only;
 
     appOptions () :
         serverIP (nullptr),
@@ -48,7 +50,9 @@ struct appOptions
         time (0),
         sockBufSize (1024*64),
         clientConnections (1),
-        statusUpdateTime (3)
+        statusUpdateTime (3),
+        ipv4Only (0),
+        ipv6Only (0)
     {
     }
 };

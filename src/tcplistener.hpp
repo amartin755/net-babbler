@@ -27,7 +27,7 @@
 class cTcpListener
 {
 public:
-    cTcpListener (uint16_t localPort, unsigned socketBufSize);
+    cTcpListener (bool ipv4Only, bool ipv6Only, uint16_t localPort, unsigned socketBufSize);
     ~cTcpListener ();
 
     void listenerThreadFunc ();
@@ -36,6 +36,7 @@ public:
 private:
     std::atomic<bool>       m_terminate;
     std::thread*            m_listenerThread;
+    int                     m_inetFamily;
     uint16_t                m_localPort;
     std::list<std::thread*> m_connThreads;
     unsigned                m_socketBufSize;

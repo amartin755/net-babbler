@@ -29,10 +29,12 @@
 #include "socket.hpp"
 #include "protocol.hpp"
 
-cTcpListener::cTcpListener (uint16_t localPort, unsigned socketBufSize)
+cTcpListener::cTcpListener (bool ipv4Only, bool ipv6Only, uint16_t localPort, unsigned socketBufSize)
     : m_terminate(false), m_listenerThread (nullptr),
+      m_inetFamily (ipv4Only ? AF_INET : (ipv6Only ? AF_INET6 : AF_UNSPEC)),
       m_localPort (localPort), m_socketBufSize (socketBufSize)
 {
+    BUG_ON (ipv4Only && ipv6Only);
     m_listenerThread = new std::thread (&cTcpListener::listenerThreadFunc, this);
 }
 
@@ -54,11 +56,13 @@ cTcpListener::~cTcpListener ()
 void cTcpListener::listenerThreadFunc ()
 {
     int sListener;
-    struct sockaddr_in address;
     const int enable = 1;
+    struct sockaddr_storage address;
+    struct sockaddr_in*  addr4 = (struct sockaddr_in*)&address;
+    struct sockaddr_in6* addr6 = (struct sockaddr_in6*)&address;
 
 
-    sListener = socket (AF_INET, SOCK_STREAM, 0);
+    sListener = socket (m_inetFamily == AF_INET ? AF_INET : AF_INET6, SOCK_STREAM, 0);
     if (sListener < 0)
     {
         Console::PrintError ("Could not create client socket (%s)\n", std::strerror(errno));
@@ -69,10 +73,26 @@ void cTcpListener::listenerThreadFunc ()
         Console::PrintError ("Could not set socket options (%s)\n", std::strerror(errno));
         goto err_out;
     }
+    if (m_inetFamily == AF_INET6 &&
+        setsockopt (sListener, IPPROTO_IPV6, IPV6_V6ONLY, &enable, sizeof(enable)))
+    {
+        Console::PrintError ("Could not set socket options (%s)\n", std::strerror(errno));
+        goto err_out;
+    }
 
-    address.sin_family      = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port        = htons (m_localPort);
+    std::memset (&address, 0, sizeof (address));
+    if (m_inetFamily == AF_INET)
+    {
+        addr4->sin_family      = AF_INET;
+        addr4->sin_addr.s_addr = INADDR_ANY;
+        addr4->sin_port        = htons (m_localPort);
+    }
+    else
+    {
+        addr6->sin6_family = AF_INET6;
+        addr6->sin6_addr   = in6addr_any;
+        addr6->sin6_port   = htons (m_localPort);
+    }
 
     if (bind (sListener, (struct sockaddr *) &address, sizeof (address)))
     {
@@ -97,8 +117,10 @@ void cTcpListener::listenerThreadFunc ()
         {
             char ip[INET6_ADDRSTRLEN];
             Console::PrintVerbose ("Client %s:%u connected to tcp port %u\n",
-                inet_ntop (address.sin_family, &address.sin_addr, ip, addrLen),
-                (unsigned)ntohs (address.sin_port), (unsigned)m_localPort);
+                address.ss_family == AF_INET ?
+                    inet_ntop (address.ss_family, &addr4->sin_addr, ip, addrLen) :
+                    inet_ntop (address.ss_family, &addr6->sin6_addr, ip, addrLen),
+                (unsigned)ntohs (addr6->sin6_port), (unsigned)m_localPort);
 
             m_connThreads.push_back (new std::thread (&cTcpListener::connectionThreadFunc, this, sConn));
         }

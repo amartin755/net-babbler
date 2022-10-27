@@ -37,6 +37,10 @@ cApplication::cApplication(const char* name, const char* brief, const char* usag
             , &m_options.verbosity);
     addCmdLineOption (true, 'l', "listen", "PORT",
             "Listen for incoming connections on PORT.", &m_options.serverPort);
+    addCmdLineOption (true, '4', nullptr,
+            "Use IPv4 addresses only.", &m_options.ipv4Only);
+    addCmdLineOption (true, '6', nullptr,
+            "Use IPv6 addresses only.", &m_options.ipv6Only);
     addCmdLineOption (true, 'i', "interval", "TIME",
             "Wait TIME in seconds between sending packets. Default is 0.0s.", &m_options.interval);
     addCmdLineOption (true, 'c', "count", "COUNT",
@@ -212,7 +216,7 @@ int cApplication::execute (const std::list<std::string>& args)
     }
     else
     {
-        cTcpListener ((uint16_t)m_options.serverPort, (unsigned)m_options.sockBufSize);
+        cTcpListener (m_options.ipv4Only, m_options.ipv6Only, (uint16_t)m_options.serverPort, (unsigned)m_options.sockBufSize);
     }
 
     return 0;
