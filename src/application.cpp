@@ -179,10 +179,11 @@ int cApplication::execute (const std::list<std::string>& args)
 
             if (terminate)
             {
-                for (auto &cl : clients)
+                cClient::terminateAll ();
+/*                for (auto &cl : clients)
                 {
                     cl.terminate ();
-                }
+                }*/
             }
             if (printStatus)
             {

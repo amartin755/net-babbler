@@ -32,6 +32,8 @@
 #include "socket.hpp"
 #include "protocol.hpp"
 
+cEvent cClient::m_eventCancel;
+
 cClient::cClient (cEvent& evTerminated, const std::string &server, uint16_t remotePort,
     uint16_t localPort, uint64_t delay, unsigned count, unsigned socketBufSize)
     : m_evTerminated (evTerminated),
@@ -46,9 +48,6 @@ cClient::cClient (cEvent& evTerminated, const std::string &server, uint16_t remo
       m_requestor (nullptr),
       m_lastStatsTime (0)
 {
-    m_evfd = eventfd (0, EFD_SEMAPHORE);
-    if (m_evfd == -1)
-        throw std::bad_alloc ();
     m_thread = new std::thread (&cClient::threadFunc, this);
 }
 
@@ -57,14 +56,12 @@ cClient::~cClient ()
     if (m_thread)
         m_thread->join ();
     delete m_thread;
-    close (m_evfd);
     delete m_requestor;
 }
 
-void cClient::terminate ()
+void cClient::terminateAll ()
 {
-    uint64_t val = 1;
-    write (m_evfd, &val, sizeof(val));
+    m_eventCancel.send ();
 }
 
 
@@ -135,7 +132,8 @@ void cClient::threadFunc ()
         {
             try
             {
-                cSocket s (addrInfo.family, addrInfo.socktype, addrInfo.protocol, m_evfd);
+                cSocket s (addrInfo.family, addrInfo.socktype, addrInfo.protocol);
+                s.setCancelEvent (m_eventCancel);
                 s.connect ((sockaddr*)&addrInfo.addr, addrInfo.addrlen);
                 sock = std::move(s);
                 connected = true;

@@ -36,7 +36,7 @@ public:
         uint16_t localPort, uint64_t delay, unsigned count,
         unsigned socketBufSize);
     ~cClient ();
-    void terminate ();
+    static void terminateAll ();
 
     unsigned statistics (cStats& stats, bool summary);
     void threadFunc ();
@@ -52,7 +52,6 @@ private:
     unsigned      m_count;
     unsigned      m_time;
     unsigned      m_socketBufSize;
-    int           m_evfd;
     cRequestor*   m_requestor;
 
     std::chrono::time_point<std::chrono::steady_clock> m_startTime;
@@ -60,6 +59,7 @@ private:
     cStats        m_lastStats;
     unsigned      m_lastStatsTime;
 
+    static cEvent m_eventCancel;
 };
 
 #endif

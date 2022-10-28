@@ -23,9 +23,9 @@
 #include "bug.hpp"
 #include "socket.hpp"
 
-cSocket::cSocket () : m_fd (-1), m_evfd (-1), m_timeout_ms (-1)
+cSocket::cSocket () : m_fd (-1), m_timeout_ms (-1)
 {
-    initPoll ();
+    initPoll (-1);
 }
 
 cSocket::cSocket (cSocket&& obj)
@@ -33,8 +33,8 @@ cSocket::cSocket (cSocket&& obj)
     *this = std::move(obj);
 }
 
-cSocket::cSocket (int domain, int type, int protocol, int evfd, int timeout)
-    : m_evfd (evfd), m_timeout_ms (timeout)
+cSocket::cSocket (int domain, int type, int protocol, int timeout)
+    : m_timeout_ms (timeout)
 {
     m_fd = socket (domain, type, protocol);
 
@@ -43,13 +43,13 @@ cSocket::cSocket (int domain, int type, int protocol, int evfd, int timeout)
         throwException (errno);
     }
 
-    initPoll ();
+    initPoll (-1);
 }
 
-cSocket::cSocket (int fd, int evfd, int timeout)
-    : m_fd(fd), m_evfd (evfd), m_timeout_ms (timeout)
+cSocket::cSocket (int fd, int timeout)
+    : m_fd(fd), m_timeout_ms (timeout)
 {
-    initPoll ();
+    initPoll (-1);
 }
 
 cSocket::~cSocket ()
@@ -61,7 +61,6 @@ cSocket::~cSocket ()
 cSocket& cSocket::operator= (cSocket&& obj)
 {
     std::memcpy (&m_pollfd, &obj.m_pollfd, sizeof (m_pollfd));
-    m_evfd       = obj.m_evfd;
     m_timeout_ms = obj.m_timeout_ms;
     m_fd         = obj.m_fd;
 
@@ -69,10 +68,15 @@ cSocket& cSocket::operator= (cSocket&& obj)
     return *this;
 }
 
-void cSocket::initPoll ()
+void cSocket::setCancelEvent (cEvent& eventCancel)
+{
+    initPoll (eventCancel);
+}
+
+void cSocket::initPoll (int evfd)
 {
     m_pollfd[0].fd = m_fd;
-    m_pollfd[1].fd = m_evfd;
+    m_pollfd[1].fd = evfd;
     m_pollfd[0].events = POLLIN;
     m_pollfd[1].events = POLLIN;
 }
@@ -218,8 +222,6 @@ std::string cSocket::inet_ntop (const struct sockaddr* addr)
     }
     return ret;
 }
-
-
 
 void cSocket::throwException (int err)
 {

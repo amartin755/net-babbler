@@ -30,6 +30,8 @@
 #include <string>
 #include <cstring>
 
+#include "event.hpp"
+
 
 // tcp: AF_INET/AF_INET6, SOCK_STREAM, 0
 // udp: AF_INET/AF_INET6, SOCK_DGRAM, 0
@@ -45,8 +47,8 @@ public:
     cSocket& operator=(const cSocket&) = delete;
 
     cSocket ();
-    cSocket (int domain, int type, int protocol, int evfd = -1, int timeout = -1);
-    cSocket (int fd, int evfd = -1, int timeout = -1);
+    cSocket (int domain, int type, int protocol, int timeout = -1);
+    cSocket (int fd, int timeout = -1);
     cSocket (cSocket&&);
     ~cSocket ();
     cSocket& operator= (cSocket&& obj);
@@ -78,6 +80,8 @@ public:
     std::string getsockname ();
     static std::string inet_ntop (const struct sockaddr* addr);
 
+    void setCancelEvent (cEvent& eventCancel);
+
     bool isValid () const
     {
         return m_fd >= 0;
@@ -85,11 +89,10 @@ public:
 private:
     static void throwException (int err);
     static void throwException (const char* err);
-    void initPoll ();
+    void initPoll (int evfd);
 
 private:
     int m_fd;
-    int m_evfd;
     struct pollfd m_pollfd[2]; // 0: socket fd, 1: event fd
     int m_timeout_ms;
 };
