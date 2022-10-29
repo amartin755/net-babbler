@@ -143,7 +143,7 @@ void cClient::threadFunc ()
                     m_remotePort,
                     sock.getsockname().c_str());
             }
-            catch (const cSocketException& e)
+            catch (const cSocket::errorException& e)
             {
                 continue;
             }
@@ -169,11 +169,12 @@ void cClient::threadFunc ()
             Console::PrintError ("Could not connect to %s\n", m_server.c_str());
         }
     }
-    catch (const cSocketException& e)
+    catch (const cSocket::errorException& e)
     {
-        e.isError() ?
-            Console::PrintError   ("%s\n", e.what()) :
-            Console::PrintVerbose ("%s\n", e.what());
+        Console::PrintError ("%s\n", e.what());
+    }
+    catch (const cSocket::eventException& e)
+    {
     }
     auto end = steady_clock::now();
     m_finishedTime = duration_cast<milliseconds>(end - m_startTime).count();

@@ -79,13 +79,43 @@ public:
         int family, int sockType, int protocol, std::list<info> &result);
     std::string getsockname ();
     static std::string inet_ntop (const struct sockaddr* addr);
-
     void setCancelEvent (cEvent& eventCancel);
+    bool isValid () const {return m_fd >= 0;}
 
-    bool isValid () const
+    // expeptions thrown by cSocket
+
+    class eventException : public std::exception
     {
-        return m_fd >= 0;
-    }
+    public:
+        eventException ()
+        {
+        }
+    };
+    class errorException : public std::exception
+    {
+    public:
+        errorException (int err) : m_err(err)
+        {
+            if (m_err == ECONNRESET) // strerror doesn't seem to return string for this error number
+                std::strncpy (m_what, "Connection reset by peer", sizeof (m_what));
+            else if (m_err)
+                strerror_r (m_err, m_what, sizeof (m_what));
+
+        }
+        errorException (const char* what)
+        {
+            std::strncpy (m_what, what, sizeof(m_what));
+        }
+        const char* what() const noexcept
+        {
+            return m_what;
+        }
+
+    private:
+        char m_what[256];
+        int m_err;
+    };
+
 private:
     static void throwException (int err);
     static void throwException (const char* err);
@@ -97,31 +127,7 @@ private:
     int m_timeout_ms;
 };
 
-class cSocketException : public std::exception
-{
-public:
-    cSocketException (int err) : m_err(err)
-    {
-        if (m_err)
-            strerror_r (m_err, m_what, sizeof (m_what));
-    }
-    cSocketException (const char* what, bool isError)
-    {
-        m_err = isError ? -1 : 0;
-        std::strncpy (m_what, what, sizeof(m_what));
-    }
-    const char* what() const noexcept
-    {
-        return m_what;
-    }
-    bool isError () const noexcept
-    {
-        return m_err != 0;
-    }
 
-private:
-    char m_what[256];
-    int m_err;
-};
+
 
 #endif

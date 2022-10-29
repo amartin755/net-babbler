@@ -122,7 +122,7 @@ ssize_t cSocket::recv (void *buf, size_t len, size_t atleast, int flags)
         }
         else if (pollret == 0)
         {
-            throw cSocketException ("Receive timeout", true);
+            throw errorException ("Receive timeout");
         }
 
         // data received
@@ -132,14 +132,14 @@ ssize_t cSocket::recv (void *buf, size_t len, size_t atleast, int flags)
             ssize_t ret = ::recv (m_fd, p, len - received, flags);
             if (ret <= 0)
             {
-                throwException (errno);
+                throwException (ret == 0 ? ECONNRESET : errno);
             }
             received += ret;
             p += ret;
         }
         // termination request
         if (m_pollfd[1].revents & POLLIN)
-            throw cSocketException ("", false);
+            throw eventException ();
     } while (received < atleast);
 
     return received;
@@ -225,13 +225,10 @@ std::string cSocket::inet_ntop (const struct sockaddr* addr)
 
 void cSocket::throwException (int err)
 {
-    if (err)
-        throw cSocketException (err);
-    else
-        throw cSocketException ("Connection terminated", false);
+    throw errorException (err);
 }
 
 void cSocket::throwException (const char* err)
 {
-    throw cSocketException (err, true);
+    throw errorException (err);
 }

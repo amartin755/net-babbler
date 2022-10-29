@@ -148,11 +148,9 @@ void cTcpListener::connectionThreadFunc (int sockfd)
             responder.doJob ();
         }
     }
-    catch (const cSocketException& e)
+    catch (const cSocket::errorException& e)
     {
-        e.isError() ?
-            Console::PrintError   ("%s\n", e.what()) :
-            Console::PrintVerbose ("%s\n", e.what());
+            Console::PrintError   ("%s\n", e.what());
     }
     Console::PrintDebug ("tcp connection terminated\n");
 }
