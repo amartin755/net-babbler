@@ -99,11 +99,9 @@ cSocket cSocket::accept (struct sockaddr *adr, socklen_t *adrlen)
     return cSocket (ret);
 }
 
-void cSocket::connect (const struct sockaddr *adr, socklen_t adrlen)
+bool cSocket::connect (const struct sockaddr *adr, socklen_t adrlen) noexcept
 {
-    int ret = ::connect (m_fd, adr, adrlen);
-    if (ret)
-        throwException (errno);
+    return ::connect (m_fd, adr, adrlen) == 0;
 }
 
 ssize_t cSocket::recv (void *buf, size_t len, size_t atleast, int flags)
@@ -174,6 +172,7 @@ void cSocket::getaddrinfo (const std::string& node, uint16_t remotePort,
     hints.ai_family   = family;
     hints.ai_socktype = sockType;
     hints.ai_protocol = protocol;
+    result.clear ();
 
     int s = ::getaddrinfo (node.c_str (), std::to_string(remotePort).c_str(), &hints, &res);
     if (s != 0)

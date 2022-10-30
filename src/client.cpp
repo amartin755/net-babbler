@@ -131,23 +131,18 @@ void cClient::threadFunc ()
         cSocket::getaddrinfo (m_server, m_remotePort, AF_UNSPEC, SOCK_STREAM, 0, r);
         for (const auto& addrInfo : r)
         {
-            try
-            {
-                cSocket s (addrInfo.family, addrInfo.socktype, addrInfo.protocol);
-                s.setCancelEvent (m_eventCancel);
-                s.connect ((sockaddr*)&addrInfo.addr, addrInfo.addrlen);
-                sock = std::move(s);
-                connected = true;
-
-                Console::Print ("Connected to %s:%u via %s\n",
-                    sock.inet_ntop ((sockaddr*)&addrInfo.addr).c_str(),
-                    m_remotePort,
-                    sock.getsockname().c_str());
-            }
-            catch (const cSocket::errorException& e)
-            {
+            cSocket s (addrInfo.family, addrInfo.socktype, addrInfo.protocol);
+            s.setCancelEvent (m_eventCancel);
+            if (!s.connect ((sockaddr*)&addrInfo.addr, addrInfo.addrlen))
                 continue;
-            }
+            sock = std::move(s);
+            connected = true;
+
+            Console::Print ("Connected to %s:%u via %s\n",
+                sock.inet_ntop ((sockaddr*)&addrInfo.addr).c_str(),
+                m_remotePort,
+                sock.getsockname().c_str());
+
             break;
         }
 

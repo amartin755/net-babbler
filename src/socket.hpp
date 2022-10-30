@@ -55,7 +55,7 @@ public:
 
     void bind (const struct sockaddr *adr, socklen_t adrlen);
     cSocket accept (struct sockaddr * adr, socklen_t * adrlen);
-    void connect (const struct sockaddr *adr, socklen_t adrlen);
+    bool connect (const struct sockaddr *adr, socklen_t adrlen) noexcept;
     ssize_t recv (void *buf, size_t len, size_t atleast = 0, int flags = 0);
     ssize_t send (const void *buf, size_t len, int flags = 0);
 
