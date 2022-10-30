@@ -40,6 +40,7 @@ struct appOptions
     int          statusUpdateTime;
     int          ipv4Only;
     int          ipv6Only;
+    const char*  comSettings;
 
     appOptions () :
         serverIP (nullptr),
@@ -52,7 +53,8 @@ struct appOptions
         clientConnections (1),
         statusUpdateTime (3),
         ipv4Only (0),
-        ipv6Only (0)
+        ipv6Only (0),
+        comSettings ("1230,1400,12340,13500")
     {
     }
 };

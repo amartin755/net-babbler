@@ -26,6 +26,7 @@
 
 #include "event.hpp"
 #include "stats.hpp"
+#include "comsettings.hpp"
 
 class cRequestor;
 
@@ -34,7 +35,7 @@ class cClient
 public:
     cClient (cEvent& evTerminated, const std::string &server, uint16_t remotePort,
         uint16_t localPort, uint64_t delay, unsigned count,
-        unsigned socketBufSize);
+        unsigned socketBufSize, const cComSettings& settings);
     ~cClient ();
     static void terminateAll ();
 
@@ -52,6 +53,7 @@ private:
     unsigned      m_count;
     unsigned      m_time;
     unsigned      m_socketBufSize;
+    cComSettings  m_settings;
     cRequestor*   m_requestor;
 
     std::chrono::time_point<std::chrono::steady_clock> m_startTime;

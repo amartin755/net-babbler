@@ -35,7 +35,7 @@
 cEvent cClient::m_eventCancel;
 
 cClient::cClient (cEvent& evTerminated, const std::string &server, uint16_t remotePort,
-    uint16_t localPort, uint64_t delay, unsigned count, unsigned socketBufSize)
+    uint16_t localPort, uint64_t delay, unsigned count, unsigned socketBufSize, const cComSettings& settings)
     : m_evTerminated (evTerminated),
       m_terminate(false),
       m_thread (nullptr),
@@ -45,6 +45,7 @@ cClient::cClient (cEvent& evTerminated, const std::string &server, uint16_t remo
       m_delay (delay),
       m_count (count),
       m_socketBufSize (socketBufSize),
+      m_settings (settings),
       m_requestor (nullptr),
       m_lastStatsTime (0)
 {
@@ -121,7 +122,7 @@ void cClient::threadFunc ()
 {
     using namespace std::chrono;
     cSocket sock;
-    m_requestor = new cRequestor (sock, m_socketBufSize, 1230, 123, 12340, 1234, m_delay);
+    m_requestor = new cRequestor (sock, m_socketBufSize, m_settings, m_delay);
 
     try
     {

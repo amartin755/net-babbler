@@ -25,6 +25,7 @@
 #include "event.hpp"
 #include "signal.hpp"
 #include "valueformatter.hpp"
+#include "comsettings.hpp"
 
 
 
@@ -50,9 +51,11 @@ cApplication::cApplication(const char* name, const char* brief, const char* usag
     addCmdLineOption (true, 0, "buf-size", "BYTES",
             "Set internal buffer for send/receive to BYTES (default 64k)", &m_options.sockBufSize);
     addCmdLineOption (true, 'n', nullptr, "CONNECTIONS",
-            "Number of parallel conntections to server.", &m_options.clientConnections);
+            "Number of parallel connections to server.", &m_options.clientConnections);
     addCmdLineOption (true, 's', "status", "SECONDS",
             "Print every SECONDS periodic status (default 3s).", &m_options.statusUpdateTime);
+    addCmdLineOption (true, 0, "proto-settings", "SETTINGS",
+            "TODO, maybe split to single options", &m_options.comSettings);
 }
 
 cApplication::~cApplication ()
@@ -112,6 +115,7 @@ int cApplication::execute (const std::list<std::string>& args)
             Console::PrintError ("Invalid port number\n");
             return -2;
         }
+        cComSettings comSettings (m_options.comSettings);
 
         cSignal sigInt (SIGINT);
         cSignal sigAlarm (SIGALRM);
@@ -121,7 +125,7 @@ int cApplication::execute (const std::list<std::string>& args)
         {
             clients.emplace_back (evClientTerminated, *args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
                 interval_us, (unsigned)m_options.count,
-                (unsigned)m_options.sockBufSize);
+                (unsigned)m_options.sockBufSize, comSettings);
         }
 
         int runningClientThreads = m_options.clientConnections;

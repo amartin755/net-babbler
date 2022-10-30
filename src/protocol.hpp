@@ -31,6 +31,9 @@
 #include "bug.hpp"
 #include "socket.hpp"
 #include "stats.hpp"
+#include "comsettings.hpp"
+
+//TODO split this header-only implementation
 
 class cProtocolException : public std::runtime_error
 {
@@ -245,13 +248,11 @@ private:
 class cRequestor : public cBabblerProtocol
 {
 public:
-    cRequestor (cSocket& sock, unsigned bufsize, unsigned reqSize, unsigned reqDelta,
-        unsigned respSize, unsigned respDelta, uint64_t delay)
+    cRequestor (cSocket& sock, unsigned bufsize, const cComSettings comSettings, uint64_t delay)
         : cBabblerProtocol (sock, bufsize),
-          m_reqSize (reqSize),
-          m_reqDelta (0, reqDelta),
-          m_respSize (respSize),
-          m_respDelta (0, respDelta),
+          m_comSettings (comSettings),
+          m_reqDelta (0, m_comSettings.m_requestSizeMax - m_comSettings.m_requestSizeMin),
+          m_respDelta (0, m_comSettings.m_responseSizeMax - m_comSettings.m_responseSizeMin),
           m_delay (delay),
           m_seq (0),
           m_wantStatus (m_delay > 10000)
@@ -261,8 +262,8 @@ public:
     void doJob ()
     {
         // generate random delta for request and response
-        unsigned reqSize  = m_reqSize + m_reqDelta (m_rng);
-        unsigned respSize = m_respSize + m_respDelta (m_rng);
+        unsigned reqSize  = m_comSettings.m_requestSizeMin + m_reqDelta (m_rng);
+        unsigned respSize = m_comSettings.m_responseSizeMin + m_respDelta (m_rng);
 
         sendRequest (++m_seq, reqSize, respSize);
         auto start = std::chrono::high_resolution_clock::now();
@@ -283,9 +284,8 @@ public:
     }
 
 private:
-    const unsigned m_reqSize;
+    const cComSettings m_comSettings;
     std::uniform_int_distribution<std::mt19937::result_type> m_reqDelta;
-    const unsigned m_respSize;
     std::uniform_int_distribution<std::mt19937::result_type> m_respDelta;
     const uint64_t m_delay;
     uint64_t m_seq;
