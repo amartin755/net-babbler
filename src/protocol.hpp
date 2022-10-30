@@ -251,6 +251,8 @@ public:
     cRequestor (cSocket& sock, unsigned bufsize, const cComSettings comSettings, uint64_t delay)
         : cBabblerProtocol (sock, bufsize),
           m_comSettings (comSettings),
+          m_currReqSize (m_comSettings.m_requestSizeMin),
+          m_currRespSize (m_comSettings.m_responseSizeMin),
           m_reqDelta (0, m_comSettings.m_requestSizeMax - m_comSettings.m_requestSizeMin),
           m_respDelta (0, m_comSettings.m_responseSizeMax - m_comSettings.m_responseSizeMin),
           m_delay (delay),
@@ -261,11 +263,7 @@ public:
 
     void doJob ()
     {
-        // generate random delta for request and response
-        unsigned reqSize  = m_comSettings.m_requestSizeMin + m_reqDelta (m_rng);
-        unsigned respSize = m_comSettings.m_responseSizeMin + m_respDelta (m_rng);
-
-        sendRequest (++m_seq, reqSize, respSize);
+        sendRequest (++m_seq, m_currReqSize, m_currRespSize);
         auto start = std::chrono::high_resolution_clock::now();
         recvResponse (m_seq);
         auto end = std::chrono::high_resolution_clock::now();
@@ -273,9 +271,26 @@ public:
         std::chrono::duration<double, std::milli> roundtrip = end - start;
 
         if (m_wantStatus)
-            Console::Print (" %4" PRIu64 ": sent %u bytes, received %u bytes, roundtrip %.3f ms\n", m_seq, reqSize, respSize, roundtrip);
+            Console::Print (" %4" PRIu64 ": sent %u bytes, received %u bytes, roundtrip %.3f ms\n",
+                m_seq, m_currReqSize, m_currRespSize, roundtrip);
         if (m_delay)
             std::this_thread::sleep_for (std::chrono::microseconds (m_delay));
+
+        if (m_comSettings.isRand ())
+        {
+            // generate random delta for request and response
+            m_currReqSize  = m_comSettings.m_requestSizeMin  + m_reqDelta (m_rng);
+            m_currRespSize = m_comSettings.m_responseSizeMin + m_respDelta (m_rng);
+        }
+        else if (m_comSettings.isSweep ())
+        {
+            m_currReqSize  += m_comSettings.m_stepWidth;
+            m_currRespSize += m_comSettings.m_stepWidth;
+            if (m_currReqSize > m_comSettings.m_requestSizeMax)
+                m_currReqSize = m_comSettings.m_requestSizeMin;
+            if (m_currRespSize > m_comSettings.m_responseSizeMax)
+                m_currRespSize = m_comSettings.m_responseSizeMin;
+        }
     }
 
     void getStats (cStats& stats)
@@ -285,6 +300,8 @@ public:
 
 private:
     const cComSettings m_comSettings;
+    unsigned m_currReqSize;
+    unsigned m_currRespSize;
     std::uniform_int_distribution<std::mt19937::result_type> m_reqDelta;
     std::uniform_int_distribution<std::mt19937::result_type> m_respDelta;
     const uint64_t m_delay;

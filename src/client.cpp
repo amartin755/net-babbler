@@ -143,12 +143,11 @@ void cClient::threadFunc ()
                 m_remotePort,
                 sock.getsockname().c_str());
 
-            break;
+            break; // success
         }
 
         if (connected)
         {
-            // TODO pattern: fixed size, random range (as today), sweep
             bool infinite = m_count == 0;
 
             m_startTime = steady_clock::now();

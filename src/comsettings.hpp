@@ -65,13 +65,14 @@ public:
             m_requestSizeMax  = (unsigned)std::stoul(vec.at(1));
             m_responseSizeMin = (unsigned)std::stoul(vec.at(2));
             m_responseSizeMax = (unsigned)std::stoul(vec.at(3));
+            m_stepWidth       = 0;
             break;
         case 5:
             m_requestSizeMin  = (unsigned)std::stoul(vec.at(0));
             m_requestSizeMax  = (unsigned)std::stoul(vec.at(1));
             m_responseSizeMin = (unsigned)std::stoul(vec.at(2));
             m_responseSizeMax = (unsigned)std::stoul(vec.at(3));
-            m_stepWidth       = (unsigned)std::stoul(vec.at(5));
+            m_stepWidth       = (unsigned)std::stoul(vec.at(4));
             break;
         default:
             throw std::range_error ("invalid settings");
