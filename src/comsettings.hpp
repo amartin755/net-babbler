@@ -45,6 +45,7 @@ public:
             std::sregex_token_iterator{begin(s), end(s), re, -1},
             std::sregex_token_iterator{});
 
+        m_stepWidth = 0;
         switch (vec.size())
         {
         case 1:
@@ -65,7 +66,6 @@ public:
             m_requestSizeMax  = (unsigned)std::stoul(vec.at(1));
             m_responseSizeMin = (unsigned)std::stoul(vec.at(2));
             m_responseSizeMax = (unsigned)std::stoul(vec.at(3));
-            m_stepWidth       = 0;
             break;
         case 5:
             m_requestSizeMin  = (unsigned)std::stoul(vec.at(0));

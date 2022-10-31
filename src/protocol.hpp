@@ -169,7 +169,8 @@ private:
                 *p++ = incr ? ++counter : --counter;
 
             uint64_t sentLen = (uint64_t)m_socket.send (m_buf, p - m_buf);
-            updateTransmitStats (sentLen, 1);
+            updateTransmitStats (sentLen, sent < totalLen ? 0 : 1);
+            p = m_buf;
         }
     }
 
@@ -186,7 +187,7 @@ private:
         if (!isRequest && !h->isResponse())
             throw cProtocolException ("Unknown packet type");
 
-        updateReceiveStats (rcvLen, 1);
+        updateReceiveStats (rcvLen, 0);
 
         const uint32_t len    = h->getLength();
         const uint64_t seq    = h->getSequence();
@@ -200,6 +201,7 @@ private:
         while (toBeReceived > 0)
         {
             rcvLen = m_socket.recv (m_buf, sizeof(m_bufsize));
+            updateReceiveStats (rcvLen, 0);
             toBeReceived -= rcvLen;
             checkPayload (m_buf, rcvLen, isRequest, expPayloadVal);
         }
@@ -207,6 +209,7 @@ private:
         {
             Console::PrintVerbose ("Warning: chunk received\n");
         }
+        updateReceiveStats (0, 1);
 
         return seq;
     }
