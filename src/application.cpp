@@ -38,7 +38,7 @@ cApplication::cApplication(const char* name, const char* brief, const char* usag
             "(max. 4 times, i.e. -vvvv) for even more debug output. "
             , &m_options.verbosity);
     addCmdLineOption (true, 'l', "listen", "PORT",
-            "Listen for incoming connections on PORT.", &m_options.serverPort);
+            "Listen for incoming connections on PORT.", &m_options.serverPorts);
     addCmdLineOption (true, '4', nullptr,
             "Use IPv4 addresses only.", &m_options.ipv4Only);
     addCmdLineOption (true, '6', nullptr,
@@ -66,7 +66,7 @@ cApplication::~cApplication ()
 
 int cApplication::execute (const std::list<std::string>& args)
 {
-    bool isServer = !!m_options.serverPort;
+    bool isServer = !!m_options.serverPorts;
     uint64_t interval_us = 0;;
 
     switch (m_options.verbosity)
@@ -109,24 +109,25 @@ int cApplication::execute (const std::list<std::string>& args)
             Console::PrintError ("Missing destination and port \n");
             return -2;
         }
-        auto a = args.cbegin(); a++;
-        int dport = std::atoi ((*a).c_str());
-        if (dport < 1 || dport > 0xffff)
-        {
-            Console::PrintError ("Invalid port number\n");
-            return -2;
-        }
         cComSettings comSettings (m_options.comSettings);
 
         cSignal sigInt (SIGINT);
         cSignal sigAlarm (SIGALRM);
         cEvent evClientTerminated;
         std::list<cClient> clients;
+        auto ports = args.cbegin(); ports++;
         for (int n = 0; n < m_options.clientConnections; n++)
         {
-            clients.emplace_back (evClientTerminated, *args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
-                interval_us, (unsigned)m_options.count,
-                (unsigned)m_options.sockBufSize, comSettings);
+            auto portList = cValueParser::rangeList (*ports);
+            for (const auto& range : portList)
+            {
+                for (auto dport = range.first; dport <= range.second; dport++)
+                {
+                    clients.emplace_back (evClientTerminated, *args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
+                        interval_us, (unsigned)m_options.count,
+                        (unsigned)m_options.sockBufSize, comSettings);
+                }
+            }
         }
 
         int runningClientThreads = m_options.clientConnections;
@@ -222,7 +223,15 @@ int cApplication::execute (const std::list<std::string>& args)
     }
     else
     {
-        cTcpListener (m_options.ipv4Only, m_options.ipv6Only, (uint16_t)m_options.serverPort, (unsigned)m_options.sockBufSize);
+        std::list<cTcpListener> servers;
+        auto portList = cValueParser::rangeList (m_options.serverPorts);
+        for (const auto& range : portList)
+        {
+            for (auto port = range.first; port <= range.second; port++)
+            {
+                servers.emplace_back (m_options.ipv4Only, m_options.ipv6Only, (uint16_t)port, (unsigned)m_options.sockBufSize);
+            }
+        }
     }
 
     return 0;

@@ -31,7 +31,7 @@ struct appOptions
 {
     const char*  serverIP;
     int          verbosity;
-    int          serverPort;
+    const char*  serverPorts;
     const char*  interval;
     int          count;
     int          time;
@@ -45,7 +45,7 @@ struct appOptions
     appOptions () :
         serverIP (nullptr),
         verbosity (0),
-        serverPort (0),
+        serverPorts (nullptr),
         interval (nullptr),
         count (0),
         time (0),
