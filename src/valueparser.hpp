@@ -16,38 +16,18 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PARAMETERPARSER_HPP
-#define PARAMETERPARSER_HPP
+#ifndef VALUEPARSER_HPP
+#define VALUEPARSER_HPP
 
 #include <utility>
 #include <string>
-#include <cstdlib>
-#include <stdexcept>
 #include <list>
 
-class cParameterParser
+
+class cValueParser
 {
 public:
-    static std::pair<unsigned long, unsigned long> range (const char* s)
-    {
-        char* end;
-        unsigned long a = std::strtoul (s, &end, 0);
-        if (errno == ERANGE)
-            throw std::out_of_range ();
-        if (*end == '\0')
-            return std::pair <unsigned long, unsigned long> (a, a);
-        else if (*end != '-')
-            throw std::invalid_argument ();
-
-        unsigned b = std::strtoul (end, &end, 0);
-        if (errno == ERANGE)
-            throw std::out_of_range ();
-
-        return std::pair <unsigned long, unsigned long> (a, b);
-    }
-    static std::list<std::pair<unsigned long, unsigned long>> rangeList (const char* s)
-    {
-    }
-
+    static std::pair<unsigned long, unsigned long> range (const std::string& s);
+    static std::list<std::pair<unsigned long, unsigned long>> rangeList (const std::string& s);
 };
 #endif

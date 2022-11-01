@@ -91,6 +91,7 @@ set (SOURCES
     ${SOURCE_DIR}/socket.cpp
     ${SOURCE_DIR}/client.cpp
     ${SOURCE_DIR}/tcplistener.cpp
+    ${SOURCE_DIR}/valueparser.cpp
 )
 set (LIBTCPPUMP_SOURCE_DIR ${SOURCE_DIR}/libtcppump)
 set (LIBTCPPUMP_SOURCES

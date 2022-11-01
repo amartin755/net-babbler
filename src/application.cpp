@@ -26,6 +26,7 @@
 #include "signal.hpp"
 #include "valueformatter.hpp"
 #include "comsettings.hpp"
+#include "valueparser.hpp"
 
 
 
@@ -237,7 +238,7 @@ void cApplication::printStatistics (const cStats& stats, unsigned duration) cons
         stats.m_sentPackets, stats.m_sentOctets, stats.m_sentOctets / duration * 1000,
         stats.m_receivedPackets, stats.m_receivedOctets, stats.m_receivedOctets / duration * 1000);
 #endif
-    // avoid divide by zero
+    // avoid division by zero
     if (!duration)
         duration = 1;
     Console::Print (
@@ -246,7 +247,6 @@ void cApplication::printStatistics (const cStats& stats, unsigned duration) cons
         stats.m_sentPackets, cValueFormatter::toHumanReadable(stats.m_sentOctets, true).c_str(), cValueFormatter::toHumanReadable(stats.m_sentOctets * 8 * 1000 / duration, false).c_str(),
         stats.m_receivedPackets, cValueFormatter::toHumanReadable(stats.m_receivedOctets, true).c_str(), cValueFormatter::toHumanReadable(stats.m_receivedOctets * 8 * 1000 / duration, false).c_str());
 }
-
 
 
 int main(int argc, char* argv[])
