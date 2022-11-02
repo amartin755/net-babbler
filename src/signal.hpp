@@ -66,7 +66,7 @@ public:
 private:
     void throwError (int err) const
     {
-        char what[256]; what[0] = '\n';
+        char what[256]; what[0] = '\0';
         strerror_r (err, what, sizeof (what));
         throw std::runtime_error (what);
     }

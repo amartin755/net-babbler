@@ -91,6 +91,9 @@ void print_ips(struct addrinfo *lst) {
 
 unsigned cClient::statistics (cStats& stats, bool summary)
 {
+    if (!m_requestor)
+        return 0;
+
     using namespace std::chrono;
     unsigned duration;
 

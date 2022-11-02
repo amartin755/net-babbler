@@ -43,7 +43,7 @@ public:
     void threadFunc ();
 
 private:
-    cEvent        m_evTerminated;
+    cEvent&       m_evTerminated;
     std::atomic<bool> m_terminate;
     std::thread*  m_thread;
     std::string   m_server;

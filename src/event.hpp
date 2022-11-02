@@ -25,6 +25,8 @@
 #include <cstring>
 #include <stdexcept>
 
+#include "bug.hpp"
+
 
 class cEvent
 {
@@ -38,12 +40,14 @@ public:
     }
     void send (const uint64_t count = 1)
     {
+        BUG_ON (m_fd == -1);
         errno = 0;
         if (write (m_fd, &count, sizeof(count)) != sizeof (count))
             throwError (errno);
     }
     void wait ()
     {
+        BUG_ON (m_fd == -1);
         uint64_t count = 0;
         errno = 0;
         if (read (m_fd, &count, sizeof (count)) != sizeof (count))
@@ -58,12 +62,13 @@ public:
     {
         if (m_fd != -1)
             close (m_fd);
+        m_fd = -1;
     }
 
 private:
     void throwError (int err) const
     {
-        char what[256]; what[0] = '\n';
+        char what[256]; what[0] = '\0';
         strerror_r (err, what, sizeof (what));
         throw std::runtime_error (what);
     }

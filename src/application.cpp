@@ -130,7 +130,7 @@ int cApplication::execute (const std::list<std::string>& args)
             }
         }
 
-        int runningClientThreads = m_options.clientConnections;
+        int runningClientThreads = clients.size();
         int remainingTime = m_options.time;
         int ticks = m_options.statusUpdateTime;
         struct pollfd pollfds[4];
