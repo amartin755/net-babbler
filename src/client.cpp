@@ -47,8 +47,12 @@ cClient::cClient (cEvent& evTerminated, const std::string &server, uint16_t remo
       m_socketBufSize (socketBufSize),
       m_settings (settings),
       m_requestor (nullptr),
+      m_connected (false),
+      m_finishedTime (0),
       m_lastStatsTime (0)
 {
+    m_connDescription = "NOT CONNECTED -> " + m_server + ":" + std::to_string(m_remotePort);
+
     m_thread = new std::thread (&cClient::threadFunc, this);
 }
 
@@ -66,59 +70,29 @@ void cClient::terminateAll ()
 }
 
 
-void print_ips(struct addrinfo *lst) {
-    /* IPv4 */
-    char ipv4[INET_ADDRSTRLEN];
-    struct sockaddr_in *addr4;
-
-    /* IPv6 */
-    char ipv6[INET6_ADDRSTRLEN];
-    struct sockaddr_in6 *addr6;
-
-    for (; lst != NULL; lst = lst->ai_next) {
-        if (lst->ai_addr->sa_family == AF_INET) {
-            addr4 = (struct sockaddr_in *) lst->ai_addr;
-            inet_ntop(AF_INET, &addr4->sin_addr, ipv4, INET_ADDRSTRLEN);
-            printf("resolved IP: %s\n", ipv4);
-        }
-        else if (lst->ai_addr->sa_family == AF_INET6) {
-            addr6 = (struct sockaddr_in6 *) lst->ai_addr;
-            inet_ntop(AF_INET6, &addr6->sin6_addr, ipv6, INET6_ADDRSTRLEN);
-            printf("IP: %s\n", ipv6);
-        }
-    }
-}
-
-unsigned cClient::statistics (cStats& stats, bool summary)
+std::pair<unsigned, unsigned> cClient::statistics (cStats& delta, cStats& summary)
 {
     if (!m_requestor)
-        return 0;
+        return std::pair<unsigned, unsigned>(0, 0);
 
     using namespace std::chrono;
     unsigned duration;
 
     auto now = steady_clock::now();
 
-    m_requestor->getStats (stats);
+    m_requestor->getStats (summary);
     duration = duration_cast<milliseconds>(now - m_startTime).count();
 
-    if (!summary)
-    {
-        unsigned lastTime   = m_lastStatsTime;
-        cStats   lastStats  = m_lastStats;
-        m_lastStatsTime     = duration;
-        m_lastStats         = stats;
-        stats    -= lastStats;
-        duration -= lastTime;
-    }
-    else
-    {
-        m_lastStatsTime = duration;
-        m_lastStats     = stats;
-        if (m_finishedTime)
-            duration = m_finishedTime;
-    }
-    return duration;
+    unsigned lastTime  = m_lastStatsTime;
+    cStats   lastStats = m_lastStats;
+             delta     = summary - lastStats;
+
+    m_lastStatsTime = duration;
+    m_lastStats     = summary;
+    if (m_finishedTime)
+        duration    = m_finishedTime;
+
+    return std::pair<unsigned, unsigned>(duration - lastTime, duration);
 }
 
 void cClient::threadFunc ()
@@ -141,10 +115,15 @@ void cClient::threadFunc ()
             sock = std::move(s);
             connected = true;
 
-            Console::Print ("Connected to %s:%u via %s\n",
-                sock.inet_ntop ((sockaddr*)&addrInfo.addr).c_str(),
-                m_remotePort,
-                sock.getsockname().c_str());
+            std::string remote = sock.inet_ntop ((sockaddr*)&addrInfo.addr) + ":" + std::to_string(m_remotePort);
+            std::string local  = sock.getsockname();
+
+            m_connDescription.reserve (remote.size() + local.size() + 4);
+            m_connDescription.clear ();
+            m_connDescription.append (local).append(" -> ").append (remote);
+
+            Console::Print ("Connected to %s via %s\n",
+                remote.c_str(), local.c_str());
 
             break; // success
         }
@@ -152,6 +131,7 @@ void cClient::threadFunc ()
         if (connected)
         {
             bool infinite = m_count == 0;
+            m_connected = true;
 
             m_startTime = steady_clock::now();
             while (!m_terminate)

@@ -70,7 +70,8 @@ public:
     int execute (const std::list<std::string>& args);
 
 private:
-    void printStatistics (const cStats&, unsigned duration) const;
+    void printStatistics (const cStats& stats, unsigned duration) const;
+    void printStatistics (const cStats& stats, unsigned duration, const cStats& stats2, unsigned duration2) const;
     appOptions m_options;
 };
 

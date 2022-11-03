@@ -194,32 +194,37 @@ int cApplication::execute (const std::list<std::string>& args)
             if (printStatus)
             {
                 printStatus = false;
-
+                int n = 1;
                 for (auto &cl : clients)
                 {
-                    cStats currStats;
-                    unsigned duration = cl.statistics (currStats, false);
-                    Console::Print ("------ %u ------\n", duration);
-                    printStatistics (currStats, duration);
+                    cStats statsDelta, statsSummary;
+                    auto duration = cl.statistics (statsDelta, statsSummary);
+//                        Console::Print ("[%.1f sec][%s]\n", duration.second /1000.0, cl.getConnDescr().c_str());
+                    Console::Print ("[%d][%s]\n", n++, cl.getConnDescr().c_str());
+                    printStatistics (statsDelta, duration.first, statsSummary, duration.second);
                 }
             }
         }
+        Console::Print ("\n- - - - - - - - - - - - - - - - - - - - - - - - -\n");
         cStats summaryAll;
         unsigned durationAll = 0;
         int n = 1;
         for (auto &cl : clients)
         {
-            cStats summary;
-            unsigned duration = cl.statistics (summary, true);
-            Console::Print ("------ %d ------\n", n++);
-            printStatistics (summary, duration);
+            cStats statsDelta, statsSummary;
+            auto duration = cl.statistics (statsDelta, statsSummary);
+            Console::Print ("[%d][%s]\n", n++, cl.getConnDescr().c_str());
+            printStatistics (statsSummary, duration.second);
 
-            summaryAll  += summary;
-            durationAll += duration;
+            summaryAll  += statsSummary;
+            durationAll += duration.second;
         }
 
-        Console::Print ("-------------------------------------\n");
-        printStatistics (summaryAll, durationAll / clients.size());
+        if (clients.size () > 1)
+        {
+            Console::Print ("[all]\n");
+            printStatistics (summaryAll, durationAll / clients.size());
+        }
     }
     else
     {
@@ -240,21 +245,49 @@ int cApplication::execute (const std::list<std::string>& args)
 
 void cApplication::printStatistics (const cStats& stats, unsigned duration) const
 {
-#if 0
-    Console::Print (
-        "sent:     %8" PRIuFAST64 " packets, %10" PRIuFAST64 " bytes, %10" PRIuFAST64 " bytes/s\n"
-        "received: %8" PRIuFAST64 " packets, %10" PRIuFAST64 " bytes, %10" PRIuFAST64 " bytes/s\n",
-        stats.m_sentPackets, stats.m_sentOctets, stats.m_sentOctets / duration * 1000,
-        stats.m_receivedPackets, stats.m_receivedOctets, stats.m_receivedOctets / duration * 1000);
-#endif
     // avoid division by zero
     if (!duration)
         duration = 1;
     Console::Print (
-        "sent:     %8" PRIuFAST64 " packets, %sB, %sbit/s\n"
-        "received: %8" PRIuFAST64 " packets, %sB, %sbit/s\n",
-        stats.m_sentPackets, cValueFormatter::toHumanReadable(stats.m_sentOctets, true).c_str(), cValueFormatter::toHumanReadable(stats.m_sentOctets * 8 * 1000 / duration, false).c_str(),
-        stats.m_receivedPackets, cValueFormatter::toHumanReadable(stats.m_receivedOctets, true).c_str(), cValueFormatter::toHumanReadable(stats.m_receivedOctets * 8 * 1000 / duration, false).c_str());
+        "requests: %8" PRIuFAST64 ", %9sB, %8sbit/s\n"
+        "replies:  %8" PRIuFAST64 ", %9sB, %8sbit/s\n",
+        stats.m_sentPackets,
+        cValueFormatter::toHumanReadable(stats.m_sentOctets, true).c_str(),
+        cValueFormatter::toHumanReadable(stats.m_sentOctets * 8 * 1000 / duration, false).c_str(),
+        stats.m_receivedPackets,
+        cValueFormatter::toHumanReadable(stats.m_receivedOctets, true).c_str(),
+        cValueFormatter::toHumanReadable(stats.m_receivedOctets * 8 * 1000 / duration, false).c_str());
+}
+
+void cApplication::printStatistics (const cStats& stats, unsigned duration, const cStats& stats2, unsigned duration2) const
+{
+    // avoid division by zero
+    if (!duration)
+        duration = 1;
+    Console::Print (
+        "requests: %8" PRIuFAST64 ", %9sB, %8sbit/s | %8" PRIuFAST64 ", %9sB, %8sbit/s\n"
+        "replies:  %8" PRIuFAST64 ", %9sB, %8sbit/s | %8" PRIuFAST64 ", %9sB, %8sbit/s\n",
+        stats2.m_sentPackets,
+        cValueFormatter::toHumanReadable(stats2.m_sentOctets, true).c_str(),
+        cValueFormatter::toHumanReadable(stats2.m_sentOctets * 8 * 1000 / duration2, false).c_str(),
+        stats.m_sentPackets,
+        cValueFormatter::toHumanReadable(stats.m_sentOctets, true).c_str(),
+        cValueFormatter::toHumanReadable(stats.m_sentOctets * 8 * 1000 / duration, false).c_str(),
+        stats2.m_receivedPackets,
+        cValueFormatter::toHumanReadable(stats2.m_receivedOctets, true).c_str(),
+        cValueFormatter::toHumanReadable(stats2.m_receivedOctets * 8 * 1000 / duration2, false).c_str(),
+        stats.m_receivedPackets,
+        cValueFormatter::toHumanReadable(stats.m_receivedOctets, true).c_str(),
+        cValueFormatter::toHumanReadable(stats.m_receivedOctets * 8 * 1000 / duration, false).c_str());
+#if 0
+    Console::Print (
+        "requsts/replies: %" PRIuFAST64 "/%" PRIuFAST64 ", %sB/%sB, %s/%sbit/s\n",
+        stats.m_sentPackets, stats.m_receivedPackets,
+        cValueFormatter::toHumanReadable(stats.m_sentOctets, true).c_str(),
+        cValueFormatter::toHumanReadable(stats.m_receivedOctets, true).c_str(),
+        cValueFormatter::toHumanReadable(stats.m_sentOctets * 8 * 1000 / duration, false).c_str(),
+        cValueFormatter::toHumanReadable(stats.m_receivedOctets * 8 * 1000 / duration, false).c_str());
+#endif
 }
 
 

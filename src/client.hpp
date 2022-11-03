@@ -23,6 +23,7 @@
 #include <thread>
 #include <atomic>
 #include <chrono>
+#include <utility>
 
 #include "event.hpp"
 #include "stats.hpp"
@@ -39,8 +40,10 @@ public:
     ~cClient ();
     static void terminateAll ();
 
-    unsigned statistics (cStats& stats, bool summary);
+    std::pair<unsigned, unsigned> statistics (cStats& delta, cStats& summary);
     void threadFunc ();
+    bool isConnected () const {return m_connected;}
+    const std::string& getConnDescr () const {return m_connDescription;}
 
 private:
     cEvent&       m_evTerminated;
@@ -55,6 +58,8 @@ private:
     unsigned      m_socketBufSize;
     cComSettings  m_settings;
     cRequestor*   m_requestor;
+    std::atomic<bool> m_connected;
+    std::string   m_connDescription;
 
     std::chrono::time_point<std::chrono::steady_clock> m_startTime;
     unsigned      m_finishedTime;
