@@ -34,9 +34,10 @@
 
 cEvent cClient::m_eventCancel;
 
-cClient::cClient (cEvent& evTerminated, const std::string &server, uint16_t remotePort,
+cClient::cClient (unsigned clientID, cEvent& evTerminated, const std::string &server, uint16_t remotePort,
     uint16_t localPort, uint64_t delay, unsigned count, unsigned socketBufSize, const cComSettings& settings)
-    : m_evTerminated (evTerminated),
+    : m_clientID (clientID),
+      m_evTerminated (evTerminated),
       m_terminate(false),
       m_thread (nullptr),
       m_server (server),
@@ -122,8 +123,8 @@ void cClient::threadFunc ()
             m_connDescription.clear ();
             m_connDescription.append (local).append(" -> ").append (remote);
 
-            Console::Print ("Connected to %s via %s\n",
-                remote.c_str(), local.c_str());
+            Console::Print ("[%u] Connected to %s via %s\n",
+                getClientID(), remote.c_str(), local.c_str());
 
             break; // success
         }
@@ -144,12 +145,12 @@ void cClient::threadFunc ()
         }
         else
         {
-            Console::PrintError ("Could not connect to %s\n", m_server.c_str());
+            Console::PrintError ("[%u] Could not connect to %s\n", getClientID(), m_server.c_str());
         }
     }
     catch (const cSocket::errorException& e)
     {
-        Console::PrintError ("%s\n", e.what());
+        Console::PrintError ("[%u] %s\n", e.what(), getClientID());
     }
     catch (const cSocket::eventException& e)
     {

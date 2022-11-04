@@ -115,6 +115,7 @@ int cApplication::execute (const std::list<std::string>& args)
         cSignal sigAlarm (SIGALRM);
         cEvent evClientTerminated;
         std::list<cClient> clients;
+        unsigned clientID = 1;
         auto ports = args.cbegin(); ports++;
         for (int n = 0; n < m_options.clientConnections; n++)
         {
@@ -123,7 +124,7 @@ int cApplication::execute (const std::list<std::string>& args)
             {
                 for (auto dport = range.first; dport <= range.second; dport++)
                 {
-                    clients.emplace_back (evClientTerminated, *args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
+                    clients.emplace_back (clientID++, evClientTerminated, *args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
                         interval_us, (unsigned)m_options.count,
                         (unsigned)m_options.sockBufSize, comSettings);
                 }
@@ -194,13 +195,12 @@ int cApplication::execute (const std::list<std::string>& args)
             if (printStatus)
             {
                 printStatus = false;
-                int n = 1;
                 for (auto &cl : clients)
                 {
                     cStats statsDelta, statsSummary;
                     auto duration = cl.statistics (statsDelta, statsSummary);
 //                        Console::Print ("[%.1f sec][%s]\n", duration.second /1000.0, cl.getConnDescr().c_str());
-                    Console::Print ("[%d][%s]\n", n++, cl.getConnDescr().c_str());
+                    Console::Print ("\n[%u] [%s] [%.2f sec]\n", cl.getClientID(), cl.getConnDescr().c_str(), duration.second /1000.0);
                     printStatistics (statsDelta, duration.first, statsSummary, duration.second);
                 }
             }
@@ -208,12 +208,11 @@ int cApplication::execute (const std::list<std::string>& args)
         Console::Print ("\n- - - - - - - - - - - - - - - - - - - - - - - - -\n");
         cStats summaryAll;
         unsigned durationAll = 0;
-        int n = 1;
         for (auto &cl : clients)
         {
             cStats statsDelta, statsSummary;
             auto duration = cl.statistics (statsDelta, statsSummary);
-            Console::Print ("[%d][%s]\n", n++, cl.getConnDescr().c_str());
+            Console::Print ("[%u][%s]\n", cl.getClientID(), cl.getConnDescr().c_str());
             printStatistics (statsSummary, duration.second);
 
             summaryAll  += statsSummary;

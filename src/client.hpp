@@ -34,7 +34,7 @@ class cRequestor;
 class cClient
 {
 public:
-    cClient (cEvent& evTerminated, const std::string &server, uint16_t remotePort,
+    cClient (unsigned clientID, cEvent& evTerminated, const std::string &server, uint16_t remotePort,
         uint16_t localPort, uint64_t delay, unsigned count,
         unsigned socketBufSize, const cComSettings& settings);
     ~cClient ();
@@ -42,10 +42,12 @@ public:
 
     std::pair<unsigned, unsigned> statistics (cStats& delta, cStats& summary);
     void threadFunc ();
+    unsigned getClientID () const  {return m_clientID;}
     bool isConnected () const {return m_connected;}
     const std::string& getConnDescr () const {return m_connDescription;}
 
 private:
+    const unsigned m_clientID;
     cEvent&       m_evTerminated;
     std::atomic<bool> m_terminate;
     std::thread*  m_thread;
