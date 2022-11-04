@@ -124,7 +124,8 @@ int cApplication::execute (const std::list<std::string>& args)
             {
                 for (auto dport = range.first; dport <= range.second; dport++)
                 {
-                    clients.emplace_back (clientID++, evClientTerminated, *args.cbegin(), (uint16_t)dport, (uint16_t)2 /*TODO*/,
+                    clients.emplace_back (clientID++, evClientTerminated, *args.cbegin(),
+                        (uint16_t)dport, (uint16_t)0 /*TODO*/,
                         interval_us, (unsigned)m_options.count,
                         (unsigned)m_options.sockBufSize, comSettings,
                         m_options.ipv4Only, m_options.ipv6Only);

@@ -113,6 +113,28 @@ void cClient::threadFunc ()
         {
             cSocket s (addrInfo.family, addrInfo.socktype, addrInfo.protocol);
             s.setCancelEvent (m_eventCancel);
+
+            if (m_localPort)
+            {
+                struct sockaddr_storage address;
+                struct sockaddr_in*  addr4 = (struct sockaddr_in*)&address;
+                struct sockaddr_in6* addr6 = (struct sockaddr_in6*)&address;
+                std::memset (&address, 0, sizeof (address));
+                if (m_inetFamily == AF_INET)
+                {
+                    addr4->sin_family      = AF_INET;
+                    addr4->sin_addr.s_addr = INADDR_ANY;
+                    addr4->sin_port        = htons (m_localPort);
+                }
+                else
+                {
+                    addr6->sin6_family = AF_INET6;
+                    addr6->sin6_addr   = in6addr_any;
+                    addr6->sin6_port   = htons (m_localPort);
+                }
+                s.bind ((struct sockaddr *) &address, sizeof (address));
+            }
+
             if (!s.connect ((sockaddr*)&addrInfo.addr, addrInfo.addrlen))
                 continue;
             sock = std::move(s);
@@ -120,7 +142,6 @@ void cClient::threadFunc ()
 
             std::string remote = sock.inet_ntop ((sockaddr*)&addrInfo.addr) + ":" + std::to_string(m_remotePort);
             std::string local  = sock.getsockname();
-
             m_connDescription.reserve (remote.size() + local.size() + 4);
             m_connDescription.clear ();
             m_connDescription.append (local).append(" -> ").append (remote);
@@ -152,7 +173,7 @@ void cClient::threadFunc ()
     }
     catch (const cSocket::errorException& e)
     {
-        Console::PrintError ("[%u] %s\n", e.what(), getClientID());
+        Console::PrintError ("[%u] %s\n", getClientID(), e.what());
     }
     catch (const cSocket::eventException& e)
     {
