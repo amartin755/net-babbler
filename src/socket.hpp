@@ -96,23 +96,21 @@ public:
     public:
         errorException (int err) : m_err(err)
         {
-            if (m_err == ECONNRESET) // strerror doesn't seem to return string for this error number
-                std::strncpy (m_what, "Connection reset by peer", sizeof (m_what));
-            else if (m_err)
-                strerror_r (m_err, m_what, sizeof (m_what));
-
+            const char* ret = strerrordesc_np (m_err);
+            if (ret)
+                m_what = ret;
         }
         errorException (const char* what)
         {
-            std::strncpy (m_what, what, sizeof(m_what));
+            m_what = what;
         }
         const char* what() const noexcept
         {
-            return m_what;
+            return m_what.c_str();
         }
 
     private:
-        char m_what[256];
+        std::string m_what;
         int m_err;
     };
 
