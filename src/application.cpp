@@ -104,11 +104,19 @@ int cApplication::execute (const std::list<std::string>& args)
 
     if (!isServer)
     {
-        if (args.size() != 2)
+        if (args.size() != 1)
         {
-            Console::PrintError ("Missing destination and port \n");
+            Console::PrintError ("Missing destination\n");
             return -2;
         }
+
+        cValueParser::protocol proto;
+        std::string remoteHost;
+        std::list<std::pair<unsigned long, unsigned long>> remotePorts;
+        std::string localAddress;
+        uint16_t localPort=0;
+        cValueParser::clientConnection (*args.cbegin(), proto, remoteHost, remotePorts, localAddress, localPort);
+
         cComSettings comSettings (m_options.comSettings);
 
         cSignal sigInt (SIGINT);
@@ -119,13 +127,12 @@ int cApplication::execute (const std::list<std::string>& args)
         auto ports = args.cbegin(); ports++;
         for (int n = 0; n < m_options.clientConnections; n++)
         {
-            auto portList = cValueParser::rangeList (*ports);
-            for (const auto& range : portList)
+            for (const auto& range : remotePorts)
             {
                 for (auto dport = range.first; dport <= range.second; dport++)
                 {
-                    clients.emplace_back (clientID++, evClientTerminated, *args.cbegin(),
-                        (uint16_t)dport, (uint16_t)0 /*TODO*/,
+                    clients.emplace_back (clientID++, evClientTerminated, remoteHost,
+                        (uint16_t)dport, localPort,
                         interval_us, (unsigned)m_options.count,
                         (unsigned)m_options.sockBufSize, comSettings,
                         m_options.ipv4Only, m_options.ipv6Only);

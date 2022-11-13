@@ -29,5 +29,12 @@ class cValueParser
 public:
     static std::pair<unsigned long, unsigned long> range (const std::string& s);
     static std::list<std::pair<unsigned long, unsigned long>> rangeList (const std::string& s);
+    static bool isIPv4Address (const std::string& s);
+    static bool isIPv6Address (const std::string& s);
+    enum protocol {TCP, UDP, SCTP, RAW, DCCP};
+    static void clientConnection (const std::string& s, protocol& proto, std::string& remoteHost,
+        std::list<std::pair<unsigned long, unsigned long>>& remotePorts,
+        std::string& localAddress, uint16_t& localPort);
+
 };
 #endif
