@@ -101,47 +101,18 @@ std::pair<unsigned, unsigned> cClient::statistics (cStats& delta, cStats& summar
 void cClient::threadFunc ()
 {
     using namespace std::chrono;
-    cSocket sock;
+    cSocket sock = cSocket::connect (m_server, m_remotePort, m_inetFamily,
+        SOCK_STREAM, 0, m_localPort);
     m_requestor = new cRequestor (sock, m_socketBufSize, m_settings, m_delay);
 
     try
     {
-        bool connected = false;
-        std::list <cSocket::info> r;
-        cSocket::getaddrinfo (m_server, m_remotePort, m_inetFamily, SOCK_STREAM, 0, r);
-        for (const auto& addrInfo : r)
+        if (sock.isValid())
         {
-            cSocket s (addrInfo.family, addrInfo.socktype, addrInfo.protocol);
-            s.setCancelEvent (m_eventCancel);
+            sock.setCancelEvent (m_eventCancel);
 
-            if (m_localPort)
-            {
-                struct sockaddr_storage address;
-                struct sockaddr_in*  addr4 = (struct sockaddr_in*)&address;
-                struct sockaddr_in6* addr6 = (struct sockaddr_in6*)&address;
-                std::memset (&address, 0, sizeof (address));
-                if (m_inetFamily == AF_INET)
-                {
-                    addr4->sin_family      = AF_INET;
-                    addr4->sin_addr.s_addr = INADDR_ANY;
-                    addr4->sin_port        = htons (m_localPort);
-                }
-                else
-                {
-                    addr6->sin6_family = AF_INET6;
-                    addr6->sin6_addr   = in6addr_any;
-                    addr6->sin6_port   = htons (m_localPort);
-                }
-                s.bind ((struct sockaddr *) &address, sizeof (address));
-            }
-
-            if (!s.connect ((sockaddr*)&addrInfo.addr, addrInfo.addrlen))
-                continue;
-            sock = std::move(s);
-            connected = true;
-
-            std::string remote = sock.inet_ntop ((sockaddr*)&addrInfo.addr) + ":" + std::to_string(m_remotePort);
-            std::string local  = sock.getsockname();
+            std::string remote = sock.getpeername ();
+            std::string local  = sock.getsockname ();
             m_connDescription.reserve (remote.size() + local.size() + 4);
             m_connDescription.clear ();
             m_connDescription.append (local).append(" -> ").append (remote);
@@ -149,11 +120,6 @@ void cClient::threadFunc ()
             Console::Print ("[%u] Connected to %s via %s\n",
                 getClientID(), remote.c_str(), local.c_str());
 
-            break; // success
-        }
-
-        if (connected)
-        {
             bool infinite = m_count == 0;
             m_connected = true;
 
