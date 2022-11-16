@@ -110,14 +110,14 @@ void cClient::setConnDescr (std::string& localAddr, std::string& remoteAddr)
 void cClient::threadFunc ()
 {
     using namespace std::chrono;
-    cSocket sock = cSocket::connect (m_server, m_remotePort, m_inetFamily,
-        m_type, m_protocol, m_localPort);
-    m_requestor = new cRequestor (sock, m_socketBufSize, m_settings, m_delay);
 
     try
     {
+        cSocket sock = cSocket::connect (m_server, m_remotePort, m_inetFamily,
+            m_type, m_protocol, m_localPort);
         if (sock.isValid())
         {
+            m_requestor = new cRequestor (sock, m_socketBufSize, m_settings, m_delay);
             std::string remote = sock.getpeername ();
             std::string local  = sock.getsockname ();
             setConnDescr (local, remote);

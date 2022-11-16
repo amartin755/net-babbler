@@ -42,7 +42,9 @@
 class cSocket
 {
 public:
-    // no copy constructor and copy operator
+    // no copy constructor and copy operator, we only allow move semantic
+    // because file descriptors owned by cSocket will automatically
+    // be closed in destructor
     cSocket (const cSocket&) = delete;
     cSocket& operator=(const cSocket&) = delete;
 
