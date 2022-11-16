@@ -51,6 +51,8 @@ public:
     const std::string& getConnDescr () const {return m_connDescription;}
 
 private:
+    void setConnDescr (std::string& localAddr, std::string& remoteAddr);
+
     const unsigned m_clientID;
     cEvent&       m_evTerminated;
     std::atomic<bool> m_terminate;

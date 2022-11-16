@@ -100,6 +100,13 @@ std::pair<unsigned, unsigned> cClient::statistics (cStats& delta, cStats& summar
     return std::pair<unsigned, unsigned>(duration - lastTime, duration);
 }
 
+void cClient::setConnDescr (std::string& localAddr, std::string& remoteAddr)
+{
+    m_connDescription.reserve (remoteAddr.size() + localAddr.size() + 4);
+    m_connDescription.clear ();
+    m_connDescription.append (localAddr).append(" -> ").append (remoteAddr);
+}
+
 void cClient::threadFunc ()
 {
     using namespace std::chrono;
@@ -111,13 +118,10 @@ void cClient::threadFunc ()
     {
         if (sock.isValid())
         {
-            sock.setCancelEvent (m_eventCancel);
-
             std::string remote = sock.getpeername ();
             std::string local  = sock.getsockname ();
-            m_connDescription.reserve (remote.size() + local.size() + 4);
-            m_connDescription.clear ();
-            m_connDescription.append (local).append(" -> ").append (remote);
+            setConnDescr (local, remote);
+            sock.setCancelEvent (m_eventCancel);
 
             Console::Print ("[%u] Connected with %s to %s via %s\n",
                 getClientID(),
