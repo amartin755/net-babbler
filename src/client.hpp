@@ -19,6 +19,9 @@
 #ifndef CLIENT_HPP
 #define CLIENT_HPP
 
+#include <sys/socket.h> // SOCK_STREAM & Co
+#include <netinet/in.h> // IPPROTO_SCTP
+
 #include <string>
 #include <thread>
 #include <atomic>
@@ -36,7 +39,8 @@ class cClient
 public:
     cClient (unsigned clientID, cEvent& evTerminated, const std::string &server, uint16_t remotePort,
         uint16_t localPort, uint64_t delay, unsigned count,
-        unsigned socketBufSize, const cComSettings& settings, bool ipv4Only, bool ipv6Only);
+        unsigned socketBufSize, const cComSettings& settings,
+        int family, int type = SOCK_STREAM, int protocol = 0);
     ~cClient ();
     static void terminateAll ();
 
@@ -60,6 +64,8 @@ private:
     unsigned      m_socketBufSize;
     cComSettings  m_settings;
     int           m_inetFamily;
+    int           m_type;
+    int           m_protocol;
     cRequestor*   m_requestor;
     std::atomic<bool> m_connected;
     std::string   m_connDescription;

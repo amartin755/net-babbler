@@ -36,7 +36,7 @@ cEvent cClient::m_eventCancel;
 
 cClient::cClient (unsigned clientID, cEvent& evTerminated, const std::string &server, uint16_t remotePort,
     uint16_t localPort, uint64_t delay, unsigned count, unsigned socketBufSize, const cComSettings& settings,
-    bool ipv4Only, bool ipv6Only)
+    int inetFamily, int type, int protocol)
     : m_clientID (clientID),
       m_evTerminated (evTerminated),
       m_terminate(false),
@@ -48,7 +48,9 @@ cClient::cClient (unsigned clientID, cEvent& evTerminated, const std::string &se
       m_count (count),
       m_socketBufSize (socketBufSize),
       m_settings (settings),
-      m_inetFamily (ipv4Only ? AF_INET : (ipv6Only ? AF_INET6 : AF_UNSPEC)),
+      m_inetFamily (inetFamily),
+      m_type (type),
+      m_protocol (protocol),
       m_requestor (nullptr),
       m_connected (false),
       m_finishedTime (0),
@@ -102,7 +104,7 @@ void cClient::threadFunc ()
 {
     using namespace std::chrono;
     cSocket sock = cSocket::connect (m_server, m_remotePort, m_inetFamily,
-        SOCK_STREAM, 0, m_localPort);
+        m_type, m_protocol, m_localPort);
     m_requestor = new cRequestor (sock, m_socketBufSize, m_settings, m_delay);
 
     try
@@ -117,8 +119,11 @@ void cClient::threadFunc ()
             m_connDescription.clear ();
             m_connDescription.append (local).append(" -> ").append (remote);
 
-            Console::Print ("[%u] Connected to %s via %s\n",
-                getClientID(), remote.c_str(), local.c_str());
+            Console::Print ("[%u] Connected with %s to %s via %s\n",
+                getClientID(),
+                m_type == SOCK_STREAM ? (m_protocol == 0 ? "TCP" : "SCTP") :
+                    (m_type == SOCK_DGRAM ? "UDP" : "UNKNOWN"),
+                remote.c_str(), local.c_str());
 
             bool infinite = m_count == 0;
             m_connected = true;
