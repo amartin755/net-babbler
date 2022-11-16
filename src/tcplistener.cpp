@@ -26,15 +26,15 @@
 
 #include "tcplistener.hpp"
 #include "console.hpp"
-#include "socket.hpp"
 #include "protocol.hpp"
 
-cTcpListener::cTcpListener (bool ipv4Only, bool ipv6Only, uint16_t localPort, unsigned socketBufSize)
-    : m_terminate(false), m_listenerThread (nullptr),
-      m_inetFamily (ipv4Only ? AF_INET : (ipv6Only ? AF_INET6 : AF_UNSPEC)),
-      m_localPort (localPort), m_socketBufSize (socketBufSize)
+cTcpListener::cTcpListener (int inetFamily, uint16_t localPort, unsigned socketBufSize)
+    : m_terminate(false),
+      m_listenerThread (nullptr),
+      m_inetFamily (inetFamily),
+      m_localPort (localPort),
+      m_socketBufSize (socketBufSize)
 {
-    BUG_ON (ipv4Only && ipv6Only);
     m_listenerThread = new std::thread (&cTcpListener::listenerThreadFunc, this);
 }
 
@@ -55,93 +55,34 @@ cTcpListener::~cTcpListener ()
 
 void cTcpListener::listenerThreadFunc ()
 {
-    int sListener;
-    const int enable = 1;
-    struct sockaddr_storage address;
-    struct sockaddr_in*  addr4 = (struct sockaddr_in*)&address;
-    struct sockaddr_in6* addr6 = (struct sockaddr_in6*)&address;
-
-
-    sListener = socket (m_inetFamily == AF_INET ? AF_INET : AF_INET6, SOCK_STREAM, 0);
-    if (sListener < 0)
+    try
     {
-        Console::PrintError ("Could not create client socket (%s)\n", std::strerror(errno));
-        return;
-    }
-    if (setsockopt (sListener, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)))
-    {
-        Console::PrintError ("Could not set socket options (%s)\n", std::strerror(errno));
-        goto err_out;
-    }
-    if (m_inetFamily == AF_INET6 &&
-        setsockopt (sListener, IPPROTO_IPV6, IPV6_V6ONLY, &enable, sizeof(enable)))
-    {
-        Console::PrintError ("Could not set socket options (%s)\n", std::strerror(errno));
-        goto err_out;
-    }
-
-    std::memset (&address, 0, sizeof (address));
-    if (m_inetFamily == AF_INET)
-    {
-        addr4->sin_family      = AF_INET;
-        addr4->sin_addr.s_addr = INADDR_ANY;
-        addr4->sin_port        = htons (m_localPort);
-    }
-    else
-    {
-        addr6->sin6_family = AF_INET6;
-        addr6->sin6_addr   = in6addr_any;
-        addr6->sin6_port   = htons (m_localPort);
-    }
-
-    if (bind (sListener, (struct sockaddr *) &address, sizeof (address)))
-    {
-        Console::PrintError ("Could not bind port %d (%s)\n", m_localPort, std::strerror(errno));
-        goto err_out;
-    }
-
-    if (listen (sListener, 50))
-    {
-        Console::PrintError ("Could not listen (%s)\n", std::strerror(errno));
-        goto err_out;
-    }
-
-    while (!m_terminate)
-    {
-        int sConn;
-        std::memset (&address, 0, sizeof(address));
-        socklen_t addrLen = sizeof (address);
-        sConn = accept (sListener, (struct sockaddr *)&address, &addrLen);
-
-        if (sConn >= 0)
+        cSocket sListener = cSocket::listen (m_inetFamily, SOCK_STREAM, 0, m_localPort, 50);
+        while (!m_terminate)
         {
-            char ip[INET6_ADDRSTRLEN];
-            Console::PrintVerbose ("Client %s:%u connected to tcp port %u\n",
-                address.ss_family == AF_INET ?
-                    inet_ntop (address.ss_family, &addr4->sin_addr, ip, addrLen) :
-                    inet_ntop (address.ss_family, &addr6->sin6_addr, ip, addrLen),
-                (unsigned)ntohs (addr6->sin6_port), (unsigned)m_localPort);
+            std::string remoteIp;
+            uint16_t remotePort;
 
-            m_connThreads.push_back (new std::thread (&cTcpListener::connectionThreadFunc, this, sConn));
+            cSocket sConn = sListener.accept (remoteIp, remotePort);
+            m_connThreads.push_back (new std::thread (&cTcpListener::connectionThreadFunc, this, std::move(sConn)));
+
+            Console::PrintVerbose ("Client %s connected to tcp port %u\n",
+                remoteIp.c_str(), remotePort);
         }
-        else //if (errno == EINTR)
-            break;
     }
-
-    Console::PrintDebug ("tcp listener terminated\n");
-
-err_out:
-    close (sListener);
+    catch (const cSocket::errorException& e)
+    {
+        Console::PrintError ("%s\n", e.what());
+    }
 }
 
 
-void cTcpListener::connectionThreadFunc (int sockfd)
+void cTcpListener::connectionThreadFunc (cSocket s)
 {
     try
     {
         ssize_t ret = 1;
-        cSocket sock (sockfd);
-        cResponder responder (sock, m_socketBufSize);
+        cResponder responder (s, m_socketBufSize);
 
         while (!m_terminate && ret > 0)
         {
@@ -150,7 +91,7 @@ void cTcpListener::connectionThreadFunc (int sockfd)
     }
     catch (const cSocket::errorException& e)
     {
-            Console::PrintError   ("%s\n", e.what());
+            Console::PrintError ("%s\n", e.what());
     }
     Console::PrintDebug ("tcp connection terminated\n");
 }

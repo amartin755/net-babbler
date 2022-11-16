@@ -250,7 +250,7 @@ int cApplication::execute (const std::list<std::string>& args)
         {
             for (auto port = range.first; port <= range.second; port++)
             {
-                servers.emplace_back (m_options.ipv4Only, m_options.ipv6Only,
+                servers.emplace_back (inetFamily,
                     (uint16_t)port, (unsigned)m_options.sockBufSize);
             }
         }

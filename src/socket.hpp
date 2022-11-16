@@ -50,38 +50,20 @@ public:
 
     cSocket ();
     cSocket (int domain, int type, int protocol, int timeout = -1);
-    cSocket (int fd, int timeout = -1);
     cSocket (cSocket&&);
     ~cSocket ();
     cSocket& operator= (cSocket&& obj);
 
-    void bind (const struct sockaddr *adr, socklen_t adrlen);
-    cSocket accept (struct sockaddr * adr, socklen_t * adrlen);
-    bool connect (const struct sockaddr *adr, socklen_t adrlen) noexcept;
     static cSocket connect (const std::string& node, uint16_t remotePort,
-        int family, int sockType, int protocol = 0, uint16_t localPort = 0,
-        const std::string& localAddr = "");
+        int family, int sockType, int protocol = 0, uint16_t localPort = 0);
+    static cSocket listen (int domain, int type, int protocol, uint16_t port,
+        int backlog);
+
+    cSocket accept (std::string& addr, uint16_t& port);
+    bool connect (const struct sockaddr *adr, socklen_t adrlen) noexcept;
     ssize_t recv (void *buf, size_t len, size_t atleast = 0, int flags = 0);
     ssize_t send (const void *buf, size_t len, int flags = 0);
 
-    struct info
-    {
-        info (const struct addrinfo& info)
-        {
-            family = info.ai_family;
-            socktype = info.ai_socktype;
-            protocol = info.ai_protocol;
-            addrlen = info.ai_addrlen;
-            std::memcpy (&addr, info.ai_addr, addrlen);
-        }
-        int              family;
-        int              socktype;
-        int              protocol;
-        socklen_t        addrlen;
-        struct sockaddr_storage  addr;
-    };
-    static void getaddrinfo (const std::string& node, uint16_t remotePort,
-        int family, int sockType, int protocol, std::list<info> &result);
     // get local address and port of socket
     std::string getsockname ();
     // get remote address and port of socket
@@ -89,7 +71,6 @@ public:
     static std::string inet_ntop (const struct sockaddr* addr);
     void setCancelEvent (cEvent& eventCancel);
     bool isValid () const {return m_fd >= 0;}
-
     // expeptions thrown by cSocket
 
     class eventException : public std::exception
@@ -123,9 +104,30 @@ public:
     };
 
 private:
+    cSocket (int fd, int timeout = -1);
     static void throwException (int err);
     static void throwException (const char* err);
     void initPoll (int evfd);
+    void enableOption (int level, int optname);
+    struct info
+    {
+        info (const struct addrinfo& info)
+        {
+            family = info.ai_family;
+            socktype = info.ai_socktype;
+            protocol = info.ai_protocol;
+            addrlen = info.ai_addrlen;
+            std::memcpy (&addr, info.ai_addr, addrlen);
+        }
+        int              family;
+        int              socktype;
+        int              protocol;
+        socklen_t        addrlen;
+        struct sockaddr_storage  addr;
+    };
+    static void getaddrinfo (const std::string& node, uint16_t remotePort,
+        int family, int sockType, int protocol, std::list<info> &result);
+    void bind (const struct sockaddr *adr, socklen_t adrlen);
 
 private:
     int m_fd;

@@ -24,14 +24,16 @@
 #include <atomic>
 #include <list>
 
+#include "socket.hpp"
+
 class cTcpListener
 {
 public:
-    cTcpListener (bool ipv4Only, bool ipv6Only, uint16_t localPort, unsigned socketBufSize);
+    cTcpListener (int inetFamily, uint16_t localPort, unsigned socketBufSize);
     ~cTcpListener ();
 
     void listenerThreadFunc ();
-    void connectionThreadFunc (int sockfd);
+    void connectionThreadFunc (cSocket s);
 
 private:
     std::atomic<bool>       m_terminate;

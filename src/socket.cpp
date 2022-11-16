@@ -81,6 +81,80 @@ void cSocket::initPoll (int evfd)
     m_pollfd[1].events = POLLIN;
 }
 
+cSocket cSocket::connect (const std::string& node, uint16_t remotePort,
+        int family, int type, int protocol, uint16_t localPort)
+{
+    std::list <cSocket::info> r;
+    cSocket::getaddrinfo (node, remotePort, family, type, protocol, r);
+    for (const auto& addrInfo : r)
+    {
+        cSocket s (addrInfo.family, addrInfo.socktype, addrInfo.protocol);
+
+        if (localPort)
+        {
+            struct sockaddr_storage address;
+            struct sockaddr_in*  addr4 = (struct sockaddr_in*)&address;
+            struct sockaddr_in6* addr6 = (struct sockaddr_in6*)&address;
+            std::memset (&address, 0, sizeof (address));
+            if (family == AF_INET)
+            {
+                addr4->sin_family      = AF_INET;
+                addr4->sin_addr.s_addr = INADDR_ANY;
+                addr4->sin_port        = htons (localPort);
+            }
+            else
+            {
+                addr6->sin6_family = AF_INET6;
+                addr6->sin6_addr   = in6addr_any;
+                addr6->sin6_port   = htons (localPort);
+            }
+            s.bind ((struct sockaddr *) &address, sizeof (address));
+        }
+
+        if (!s.connect ((sockaddr*)&addrInfo.addr, addrInfo.addrlen))
+            continue;
+
+        return s; // success
+    }
+    return cSocket(); // error
+}
+
+cSocket cSocket::listen (int domain, int type, int protocol, uint16_t port, int backlog)
+{
+    // AF_UNSPEC means IPv4 AND IPv6
+    cSocket sListener (domain == AF_UNSPEC ? AF_INET6 : AF_INET, type, protocol);
+
+    sListener.enableOption (SOL_SOCKET, SO_REUSEADDR);
+    if (domain == AF_INET6)
+    {
+        sListener.enableOption (IPPROTO_IPV6, IPV6_V6ONLY);
+    }
+
+    struct sockaddr_storage address;
+    struct sockaddr_in*  addr4 = (struct sockaddr_in*)&address;
+    struct sockaddr_in6* addr6 = (struct sockaddr_in6*)&address;
+    std::memset (&address, 0, sizeof (address));
+    if (domain == AF_INET)
+    {
+        addr4->sin_family      = AF_INET;
+        addr4->sin_addr.s_addr = INADDR_ANY;
+        addr4->sin_port        = htons (port);
+    }
+    else
+    {
+        addr6->sin6_family = AF_INET6;
+        addr6->sin6_addr   = in6addr_any;
+        addr6->sin6_port   = htons (port);
+    }
+
+    sListener.bind ((struct sockaddr *) &address, sizeof (address));
+    if (::listen (sListener.m_fd, backlog))
+    {
+        throwException (errno);
+    }
+    return sListener;
+}
+
 void cSocket::bind (const struct sockaddr *adr, socklen_t adrlen)
 {
     int ret = ::bind (m_fd, adr, adrlen);
@@ -88,13 +162,19 @@ void cSocket::bind (const struct sockaddr *adr, socklen_t adrlen)
         throwException (errno);
 }
 
-cSocket cSocket::accept (struct sockaddr *adr, socklen_t *adrlen)
+cSocket cSocket::accept (std::string& addr, uint16_t& port)
 {
-    int ret = ::accept (m_fd, adr, adrlen);
+    struct sockaddr_storage address;
+    std::memset (&address, 0, sizeof(address));
+    socklen_t addrLen = sizeof (address);
+
+    int ret = ::accept (m_fd, (struct sockaddr *)&address, &addrLen);
     if (ret < 0)
     {
         throwException (errno);
     }
+    addr = inet_ntop ((struct sockaddr *)&address);
+    port = ntohs (((struct sockaddr_in6*)&address)->sin6_port);
 
     return cSocket (ret);
 }
@@ -186,45 +266,6 @@ void cSocket::getaddrinfo (const std::string& node, uint16_t remotePort,
     freeaddrinfo (res);
 }
 
-cSocket cSocket::connect (const std::string& node, uint16_t remotePort,
-        int family, int type, int protocol, uint16_t localPort,
-        const std::string& localAddr)
-{
-    std::list <cSocket::info> r;
-    cSocket::getaddrinfo (node, remotePort, family, type, protocol, r);
-    for (const auto& addrInfo : r)
-    {
-        cSocket s (addrInfo.family, addrInfo.socktype, addrInfo.protocol);
-
-        if (localPort)
-        {
-            struct sockaddr_storage address;
-            struct sockaddr_in*  addr4 = (struct sockaddr_in*)&address;
-            struct sockaddr_in6* addr6 = (struct sockaddr_in6*)&address;
-            std::memset (&address, 0, sizeof (address));
-            if (family == AF_INET)
-            {
-                addr4->sin_family      = AF_INET;
-                addr4->sin_addr.s_addr = INADDR_ANY;
-                addr4->sin_port        = htons (localPort);
-            }
-            else
-            {
-                addr6->sin6_family = AF_INET6;
-                addr6->sin6_addr   = in6addr_any;
-                addr6->sin6_port   = htons (localPort);
-            }
-            s.bind ((struct sockaddr *) &address, sizeof (address));
-        }
-
-        if (!s.connect ((sockaddr*)&addrInfo.addr, addrInfo.addrlen))
-            continue;
-
-        return s; // success
-    }
-    return cSocket(); // error
-}
-
 std::string cSocket::getsockname ()
 {
     std::ostringstream out;
@@ -274,6 +315,15 @@ std::string cSocket::inet_ntop (const struct sockaddr* addr)
         throwException (errno);
     }
     return ret;
+}
+
+void cSocket::enableOption (int level, int optname)
+{
+    const int enable = 1;
+    if (setsockopt (m_fd, level, optname, &enable, sizeof(enable)))
+    {
+        throwException (errno);
+    }
 }
 
 void cSocket::throwException (int err)
