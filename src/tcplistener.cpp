@@ -28,8 +28,9 @@
 #include "console.hpp"
 #include "protocol.hpp"
 
-cTcpListener::cTcpListener (int inetFamily, uint16_t localPort, unsigned socketBufSize)
-    : m_terminate(false),
+cTcpListener::cTcpListener (int inetFamily, uint16_t localPort, unsigned socketBufSize, cSemaphore& threadLimit)
+    : m_terminate (false),
+      m_threadLimit (threadLimit),
       m_listenerThread (nullptr),
       m_inetFamily (inetFamily),
       m_localPort (localPort),
@@ -60,6 +61,7 @@ void cTcpListener::listenerThreadFunc ()
         cSocket sListener = cSocket::listen (m_inetFamily, SOCK_STREAM, 0, m_localPort, 50);
         while (!m_terminate)
         {
+            m_threadLimit.wait ();
             std::string remoteIp;
             uint16_t remotePort;
 
@@ -93,4 +95,5 @@ void cTcpListener::connectionThreadFunc (cSocket s)
             Console::PrintError ("%s\n", e.what());
     }
     Console::PrintDebug ("tcp connection terminated\n");
+    m_threadLimit.post ();
 }

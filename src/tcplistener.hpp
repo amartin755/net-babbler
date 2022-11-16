@@ -25,11 +25,12 @@
 #include <list>
 
 #include "socket.hpp"
+#include "semaphore.hpp"
 
 class cTcpListener
 {
 public:
-    cTcpListener (int inetFamily, uint16_t localPort, unsigned socketBufSize);
+    cTcpListener (int inetFamily, uint16_t localPort, unsigned socketBufSize, cSemaphore& threadLimit);
     ~cTcpListener ();
 
     void listenerThreadFunc ();
@@ -37,6 +38,7 @@ public:
 
 private:
     std::atomic<bool>       m_terminate;
+    cSemaphore&             m_threadLimit;
     std::thread*            m_listenerThread;
     int                     m_inetFamily;
     uint16_t                m_localPort;

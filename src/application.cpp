@@ -244,6 +244,7 @@ int cApplication::execute (const std::list<std::string>& args)
     }
     else
     {
+        cSemaphore maxConnThreadCount (1000);
         std::list<cTcpListener> servers;
         auto portList = cValueParser::rangeList (m_options.serverPorts);
         for (const auto& range : portList)
@@ -251,7 +252,7 @@ int cApplication::execute (const std::list<std::string>& args)
             for (auto port = range.first; port <= range.second; port++)
             {
                 servers.emplace_back (inetFamily,
-                    (uint16_t)port, (unsigned)m_options.sockBufSize);
+                    (uint16_t)port, (unsigned)m_options.sockBufSize, maxConnThreadCount);
             }
         }
     }
