@@ -81,10 +81,9 @@ void cTcpListener::connectionThreadFunc (cSocket s)
 {
     try
     {
-        ssize_t ret = 1;
         cResponder responder (s, m_socketBufSize);
 
-        while (!m_terminate && ret > 0)
+        while (!m_terminate)
         {
             responder.doJob ();
         }
