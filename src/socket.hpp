@@ -48,8 +48,6 @@ public:
     cSocket (const cSocket&) = delete;
     cSocket& operator=(const cSocket&) = delete;
 
-    cSocket ();
-    cSocket (int domain, int type, int protocol, int timeout = -1);
     cSocket (cSocket&&);
     ~cSocket ();
     cSocket& operator= (cSocket&& obj);
@@ -104,9 +102,9 @@ public:
     };
 
 private:
+    cSocket ();
+    cSocket (int domain, int type, int protocol, int timeout = -1);
     cSocket (int fd, int timeout = -1);
-    static void throwException (int err);
-    static void throwException (const char* err);
     void initPoll (int evfd);
     void enableOption (int level, int optname);
     struct info
@@ -125,6 +123,8 @@ private:
         socklen_t        addrlen;
         struct sockaddr_storage  addr;
     };
+    static void throwException (int err);
+    static void throwException (const char* err);
     static void getaddrinfo (const std::string& node, uint16_t remotePort,
         int family, int sockType, int protocol, std::list<info> &result);
     void bind (const struct sockaddr *adr, socklen_t adrlen);
