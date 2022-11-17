@@ -31,6 +31,7 @@
 #include "event.hpp"
 #include "stats.hpp"
 #include "comsettings.hpp"
+#include "socket.hpp"
 
 class cRequestor;
 
@@ -40,7 +41,7 @@ public:
     cClient (unsigned clientID, cEvent& evTerminated, const std::string &server, uint16_t remotePort,
         uint16_t localPort, uint64_t delay, unsigned count,
         unsigned socketBufSize, const cComSettings& settings,
-        int family, int type = SOCK_STREAM, int protocol = 0);
+        const cSocket::Properties& proto);
     ~cClient ();
     static void terminateAll ();
 
@@ -65,9 +66,7 @@ private:
     unsigned      m_time;
     unsigned      m_socketBufSize;
     cComSettings  m_settings;
-    int           m_inetFamily;
-    int           m_type;
-    int           m_protocol;
+    const cSocket::Properties m_protocol;
     cRequestor*   m_requestor;
     std::atomic<bool> m_connected;
     std::string   m_connDescription;

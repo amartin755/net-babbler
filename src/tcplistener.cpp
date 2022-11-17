@@ -28,11 +28,11 @@
 #include "console.hpp"
 #include "protocol.hpp"
 
-cTcpListener::cTcpListener (int inetFamily, uint16_t localPort, unsigned socketBufSize, cSemaphore& threadLimit)
+cTcpListener::cTcpListener (const cSocket::Properties& proto, uint16_t localPort, unsigned socketBufSize, cSemaphore& threadLimit)
     : m_terminate (false),
       m_threadLimit (threadLimit),
       m_listenerThread (nullptr),
-      m_inetFamily (inetFamily),
+      m_protocol (proto),
       m_localPort (localPort),
       m_socketBufSize (socketBufSize)
 {
@@ -58,7 +58,7 @@ void cTcpListener::listenerThreadFunc ()
 {
     try
     {
-        cSocket sListener = cSocket::listen (m_inetFamily, SOCK_STREAM, 0, m_localPort, 50);
+        cSocket sListener = cSocket::listen (m_protocol, m_localPort, 50);
         while (!m_terminate)
         {
             m_threadLimit.wait ();

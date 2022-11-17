@@ -102,13 +102,13 @@ bool cValueParser::isIPv6Address (const std::string& s)
     return inet_pton(AF_INET6, s.c_str(), buf) == 1;
 }
 
-void cValueParser::clientConnection (const std::string& s, protocol& proto, std::string& remoteHost,
+void cValueParser::clientConnection (const std::string& s, cSocket::Properties& proto, std::string& remoteHost,
     std::list<std::pair<unsigned long, unsigned long>>& remotePorts,
     std::string& localAddress, uint16_t& localPort)
 {
     std::size_t offset = 0;
     std::smatch match;
-    proto = TCP;
+    proto = cSocket::Properties::tcp();
 
     // [proto://]dst_host[:dst_ports][:local_addr][:local_port]
     //  dst_host: ipv4 address OR ipv6 address enclosed in [] OR DNS name
@@ -128,13 +128,11 @@ void cValueParser::clientConnection (const std::string& s, protocol& proto, std:
         offset = match[0].str().size();
 
         if (s.substr (0, 3) == "udp")
-            proto = UDP;
-        else if (s.substr (0, 2) == "ip")
-            proto = RAW;
+            proto = cSocket::Properties::udp();
         else if (s.substr (0, 4) == "sctp")
-            proto = SCTP;
+            proto = cSocket::Properties::sctp();
         else if (s.substr (0, 4) == "dccp")
-            proto = DCCP;
+            proto = cSocket::Properties::dccp();
     }
     std::string remainder (s.substr(offset));
 

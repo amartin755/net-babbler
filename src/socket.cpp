@@ -18,6 +18,7 @@
 
 #include <unistd.h>
 #include <arpa/inet.h>
+
 #include <sstream>
 
 #include "bug.hpp"
@@ -81,11 +82,11 @@ void cSocket::initPoll (int evfd)
     m_pollfd[1].events = POLLIN;
 }
 
-cSocket cSocket::connect (const std::string& node, uint16_t remotePort,
-        int family, int type, int protocol, uint16_t localPort)
+cSocket cSocket::connect (const Properties& prop, const std::string& node, uint16_t remotePort,
+        uint16_t localPort)
 {
     std::list <cSocket::info> r;
-    cSocket::getaddrinfo (node, remotePort, family, type, protocol, r);
+    cSocket::getaddrinfo (node, remotePort, prop.family(), prop.type(), prop.protocol(), r);
     for (const auto& addrInfo : r)
     {
         cSocket s (addrInfo.family, addrInfo.socktype, addrInfo.protocol);
@@ -96,7 +97,7 @@ cSocket cSocket::connect (const std::string& node, uint16_t remotePort,
             struct sockaddr_in*  addr4 = (struct sockaddr_in*)&address;
             struct sockaddr_in6* addr6 = (struct sockaddr_in6*)&address;
             std::memset (&address, 0, sizeof (address));
-            if (family == AF_INET)
+            if (prop.family() == AF_INET)
             {
                 addr4->sin_family      = AF_INET;
                 addr4->sin_addr.s_addr = INADDR_ANY;
@@ -119,10 +120,11 @@ cSocket cSocket::connect (const std::string& node, uint16_t remotePort,
     return cSocket(); // error
 }
 
-cSocket cSocket::listen (int domain, int type, int protocol, uint16_t port, int backlog)
+cSocket cSocket::listen (const Properties& prop, uint16_t port, int backlog)
 {
+    int domain = prop.family();
     // AF_UNSPEC means IPv4 AND IPv6
-    cSocket sListener (domain == AF_UNSPEC ? AF_INET6 : AF_INET, type, protocol);
+    cSocket sListener (domain == AF_UNSPEC ? AF_INET6 : AF_INET, prop.type(), prop.protocol());
 
     sListener.enableOption (SOL_SOCKET, SO_REUSEADDR);
     if (domain == AF_INET6)
@@ -334,4 +336,73 @@ void cSocket::throwException (int err)
 void cSocket::throwException (const char* err)
 {
     throw errorException (err);
+}
+
+cSocket::Properties::Properties (int family, int type, int protocol)
+: m_family (family), m_type (type), m_protocol (protocol)
+{
+}
+
+cSocket::Properties::Properties () : Properties(toFamily (true, true), SOCK_STREAM, 0)
+{
+}
+
+cSocket::Properties cSocket::Properties::tcp (bool ipv4, bool ipv6)
+{
+    Properties obj (toFamily (ipv4, ipv6), SOCK_STREAM, 0);
+    return obj;
+}
+
+cSocket::Properties cSocket::Properties::udp (bool ipv4, bool ipv6)
+{
+    Properties obj (toFamily (ipv4, ipv6), SOCK_DGRAM, 0);
+    return obj;
+}
+
+cSocket::Properties cSocket::Properties::sctp (bool ipv4, bool ipv6)
+{
+    Properties obj (toFamily (ipv4, ipv6), SOCK_STREAM, IPPROTO_SCTP);
+    return obj;
+}
+
+cSocket::Properties cSocket::Properties::dccp (bool ipv4, bool ipv6)
+{
+    Properties obj (toFamily (ipv4, ipv6), SOCK_DCCP, IPPROTO_DCCP);
+    return obj;
+}
+
+cSocket::Properties cSocket::Properties::raw (uint8_t protocol, bool ipv4, bool ipv6)
+{
+    Properties obj (toFamily (ipv4, ipv6), SOCK_RAW, (int)protocol);
+    return obj;
+}
+
+void cSocket::Properties::setIpFamily (bool ipv4, bool ipv6)
+{
+    m_family = toFamily (ipv4, ipv6);
+}
+
+const char* cSocket::Properties::toString () const
+{
+    switch (m_type)
+    {
+    case SOCK_STREAM:
+        return m_protocol ? "sctp" : "tcp";
+    case SOCK_DGRAM:
+        return "udp";
+    case SOCK_DCCP:
+        return "dccp";
+    case SOCK_RAW:
+        return "ip";
+    }
+    BUG ("unkown protocol");
+    return "";
+}
+
+int cSocket::Properties::toFamily (bool ipv4, bool ipv6)
+{
+    BUG_ON (!ipv4 && !ipv6);
+    if (ipv4 && ipv6)
+        return  AF_UNSPEC;
+    return  ipv4 ? AF_INET : AF_INET6;
 }

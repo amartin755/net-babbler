@@ -68,7 +68,6 @@ int cApplication::execute (const std::list<std::string>& args)
 {
     bool isServer = !!m_options.serverPorts;
     uint64_t interval_us = 0;;
-    int inetFamily = AF_UNSPEC;
 
     switch (m_options.verbosity)
     {
@@ -103,11 +102,6 @@ int cApplication::execute (const std::list<std::string>& args)
         return -2;
     }
 
-    if (m_options.ipv4Only != m_options.ipv6Only)
-    {
-        inetFamily = m_options.ipv4Only ? AF_INET : AF_INET6;
-    }
-
     if (!isServer)
     {
         if (args.size() != 1)
@@ -116,14 +110,13 @@ int cApplication::execute (const std::list<std::string>& args)
             return -2;
         }
 
-        cValueParser::protocol p;
+        cSocket::Properties protocol;
         std::string remoteHost;
         std::list<std::pair<unsigned long, unsigned long>> remotePorts;
         std::string localAddress;
         uint16_t localPort=0;
-        cValueParser::clientConnection (*args.cbegin(), p, remoteHost, remotePorts, localAddress, localPort);
-        int type  = p == cValueParser::protocol::UDP  ? SOCK_DGRAM : SOCK_STREAM;
-        int proto = p == cValueParser::protocol::SCTP ? IPPROTO_SCTP: 0;
+        cValueParser::clientConnection (*args.cbegin(), protocol, remoteHost, remotePorts, localAddress, localPort);
+        protocol.setIpFamily (!m_options.ipv6Only, !m_options.ipv4Only);
 
         cComSettings comSettings (m_options.comSettings);
 
@@ -143,7 +136,7 @@ int cApplication::execute (const std::list<std::string>& args)
                         (uint16_t)dport, localPort,
                         interval_us, (unsigned)m_options.count,
                         (unsigned)m_options.sockBufSize, comSettings,
-                        inetFamily, type, proto);
+                        protocol);
                 }
             }
         }
@@ -251,7 +244,7 @@ int cApplication::execute (const std::list<std::string>& args)
         {
             for (auto port = range.first; port <= range.second; port++)
             {
-                servers.emplace_back (inetFamily,
+                servers.emplace_back (cSocket::Properties::tcp(!m_options.ipv6Only, !m_options.ipv4Only),
                     (uint16_t)port, (unsigned)m_options.sockBufSize, maxConnThreadCount);
             }
         }

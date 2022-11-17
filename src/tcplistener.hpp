@@ -30,7 +30,7 @@
 class cTcpListener
 {
 public:
-    cTcpListener (int inetFamily, uint16_t localPort, unsigned socketBufSize, cSemaphore& threadLimit);
+    cTcpListener (const cSocket::Properties& proto, uint16_t localPort, unsigned socketBufSize, cSemaphore& threadLimit);
     ~cTcpListener ();
 
     void listenerThreadFunc ();
@@ -40,7 +40,7 @@ private:
     std::atomic<bool>       m_terminate;
     cSemaphore&             m_threadLimit;
     std::thread*            m_listenerThread;
-    int                     m_inetFamily;
+    const cSocket::Properties m_protocol;
     uint16_t                m_localPort;
     std::list<std::thread*> m_connThreads;
     unsigned                m_socketBufSize;

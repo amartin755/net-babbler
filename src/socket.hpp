@@ -52,13 +52,13 @@ public:
     ~cSocket ();
     cSocket& operator= (cSocket&& obj);
 
-    static cSocket connect (const std::string& node, uint16_t remotePort,
-        int family, int sockType, int protocol = 0, uint16_t localPort = 0);
-    static cSocket listen (int domain, int type, int protocol, uint16_t port,
+    class Properties;
+    static cSocket connect (const Properties& properties, const std::string& node,
+        uint16_t remotePort, uint16_t localPort);
+    static cSocket listen (const Properties& properties, uint16_t port,
         int backlog);
 
     cSocket accept (std::string& addr, uint16_t& port);
-    bool connect (const struct sockaddr *adr, socklen_t adrlen) noexcept;
     ssize_t recv (void *buf, size_t len, size_t atleast = 0, int flags = 0);
     ssize_t send (const void *buf, size_t len, int flags = 0);
 
@@ -107,6 +107,8 @@ private:
     cSocket (int fd, int timeout = -1);
     void initPoll (int evfd);
     void enableOption (int level, int optname);
+    static void throwException (int err);
+    static void throwException (const char* err);
     struct info
     {
         info (const struct addrinfo& info)
@@ -123,16 +125,48 @@ private:
         socklen_t        addrlen;
         struct sockaddr_storage  addr;
     };
-    static void throwException (int err);
-    static void throwException (const char* err);
     static void getaddrinfo (const std::string& node, uint16_t remotePort,
         int family, int sockType, int protocol, std::list<info> &result);
     void bind (const struct sockaddr *adr, socklen_t adrlen);
+    bool connect (const struct sockaddr *adr, socklen_t adrlen) noexcept;
 
 private:
     int m_fd;
     struct pollfd m_pollfd[2]; // 0: socket fd, 1: event fd
     int m_timeout_ms;
+
+public:
+    class Properties
+    {
+    public:
+        Properties ();
+        static Properties tcp (bool ipv4 = true, bool ipv6 = true);
+        static Properties udp (bool ipv4 = true, bool ipv6 = true);
+        static Properties sctp (bool ipv4 = true, bool ipv6 = true);
+        static Properties dccp (bool ipv4 = true, bool ipv6 = true);
+        static Properties raw (uint8_t protocol, bool ipv4 = true, bool ipv6 = true);
+        void setIpFamily (bool ipv4, bool ipv6);
+        int family () const
+        {
+            return m_family;
+        }
+        int type () const
+        {
+            return m_type;
+        }
+        int protocol () const
+        {
+            return m_protocol;
+        }
+        const char* toString () const;
+
+    private:
+        Properties (int family, int type, int protocol);
+        static int toFamily (bool ipv4, bool ipv6);
+        int m_family;
+        int m_type;
+        int m_protocol;
+    };
 };
 
 

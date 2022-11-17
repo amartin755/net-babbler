@@ -36,7 +36,7 @@ cEvent cClient::m_eventCancel;
 
 cClient::cClient (unsigned clientID, cEvent& evTerminated, const std::string &server, uint16_t remotePort,
     uint16_t localPort, uint64_t delay, unsigned count, unsigned socketBufSize, const cComSettings& settings,
-    int inetFamily, int type, int protocol)
+    const cSocket::Properties& protocol)
     : m_clientID (clientID),
       m_evTerminated (evTerminated),
       m_terminate(false),
@@ -48,8 +48,6 @@ cClient::cClient (unsigned clientID, cEvent& evTerminated, const std::string &se
       m_count (count),
       m_socketBufSize (socketBufSize),
       m_settings (settings),
-      m_inetFamily (inetFamily),
-      m_type (type),
       m_protocol (protocol),
       m_requestor (nullptr),
       m_connected (false),
@@ -113,8 +111,7 @@ void cClient::threadFunc ()
 
     try
     {
-        cSocket sock = cSocket::connect (m_server, m_remotePort, m_inetFamily,
-            m_type, m_protocol, m_localPort);
+        cSocket sock = cSocket::connect (m_protocol, m_server, m_remotePort, m_localPort);
         if (sock.isValid())
         {
             m_requestor = new cRequestor (sock, m_socketBufSize, m_settings, m_delay);
@@ -125,8 +122,7 @@ void cClient::threadFunc ()
 
             Console::Print ("[%u] Connected with %s to %s via %s\n",
                 getClientID(),
-                m_type == SOCK_STREAM ? (m_protocol == 0 ? "TCP" : "SCTP") :
-                    (m_type == SOCK_DGRAM ? "UDP" : "UNKNOWN"),
+                m_protocol.toString(),
                 remote.c_str(), local.c_str());
 
             bool infinite = m_count == 0;
