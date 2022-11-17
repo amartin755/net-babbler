@@ -246,6 +246,10 @@ int cApplication::execute (const std::list<std::string>& args)
             {
                 servers.emplace_back (cSocket::Properties::tcp(!m_options.ipv6Only, !m_options.ipv4Only),
                     (uint16_t)port, (unsigned)m_options.sockBufSize, maxConnThreadCount);
+                servers.emplace_back (cSocket::Properties::sctp(!m_options.ipv6Only, !m_options.ipv4Only),
+                    (uint16_t)port, (unsigned)m_options.sockBufSize, maxConnThreadCount);
+                servers.emplace_back (cSocket::Properties::dccp(!m_options.ipv6Only, !m_options.ipv4Only),
+                    (uint16_t)port, (unsigned)m_options.sockBufSize, maxConnThreadCount);
             }
         }
     }

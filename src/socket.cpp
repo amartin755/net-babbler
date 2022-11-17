@@ -217,6 +217,13 @@ ssize_t cSocket::recv (void *buf, size_t len, size_t atleast, int flags)
             received += ret;
             p += ret;
         }
+
+        // connection terminated
+        if (m_pollfd[0].revents & (POLLERR | POLLHUP))
+        {
+            throwException (ECONNRESET);
+        }
+
         // termination request
         if (m_pollfd[1].revents & POLLIN)
             throw eventException ();

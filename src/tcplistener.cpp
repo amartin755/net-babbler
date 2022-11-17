@@ -68,8 +68,8 @@ void cTcpListener::listenerThreadFunc ()
             cSocket sConn = sListener.accept (remoteIp, remotePort);
             m_connThreads.push_back (new std::thread (&cTcpListener::connectionThreadFunc, this, std::move(sConn)));
 
-            Console::PrintVerbose ("Client %s connected to tcp port %u\n",
-                remoteIp.c_str(), remotePort);
+            Console::PrintVerbose ("Client %s connected to %s port %u\n",
+                remoteIp.c_str(), m_protocol.toString(), remotePort);
         }
     }
     catch (const cSocket::errorException& e)
@@ -94,6 +94,6 @@ void cTcpListener::connectionThreadFunc (cSocket s)
     {
             Console::PrintError ("%s\n", e.what());
     }
-    Console::PrintDebug ("tcp connection terminated\n");
+    Console::PrintDebug ("%s connection terminated\n", m_protocol.toString());
     m_threadLimit.post ();
 }
