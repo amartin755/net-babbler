@@ -41,7 +41,7 @@ cSocket::cSocket (int domain, int type, int protocol, int timeout)
 
     if (m_fd < 0)
     {
-        throwException (errno);
+        throw errorException (errno);
     }
 
     initPoll (-1);
@@ -152,7 +152,7 @@ cSocket cSocket::listen (const Properties& prop, uint16_t port, int backlog)
     sListener.bind ((struct sockaddr *) &address, sizeof (address));
     if (::listen (sListener.m_fd, backlog))
     {
-        throwException (errno);
+        throw errorException (errno);
     }
     return sListener;
 }
@@ -161,7 +161,7 @@ void cSocket::bind (const struct sockaddr *adr, socklen_t adrlen)
 {
     int ret = ::bind (m_fd, adr, adrlen);
     if (ret)
-        throwException (errno);
+        throw errorException (errno);
 }
 
 cSocket cSocket::accept (std::string& addr, uint16_t& port)
@@ -173,7 +173,7 @@ cSocket cSocket::accept (std::string& addr, uint16_t& port)
     int ret = ::accept (m_fd, (struct sockaddr *)&address, &addrLen);
     if (ret < 0)
     {
-        throwException (errno);
+        throw errorException (errno);
     }
     addr = inet_ntop ((struct sockaddr *)&address);
     port = ntohs (((struct sockaddr_in6*)&address)->sin6_port);
@@ -199,7 +199,7 @@ ssize_t cSocket::recv (void *buf, size_t len, size_t atleast,
         int pollret = poll (m_pollfd, 2, m_timeout_ms);
         if (pollret < 0)
         {
-            throwException (errno);
+            throw errorException (errno);
         }
         else if (pollret == 0)
         {
@@ -209,7 +209,7 @@ ssize_t cSocket::recv (void *buf, size_t len, size_t atleast,
         // connection terminated
         if (m_pollfd[0].revents & (POLLERR | POLLHUP))
         {
-            throwException (ECONNRESET);
+            throw errorException (ECONNRESET);
         }
 
         // data received
@@ -219,7 +219,7 @@ ssize_t cSocket::recv (void *buf, size_t len, size_t atleast,
             ssize_t ret = ::recvfrom (m_fd, p, len - received, 0, src_addr, addrlen);
             if (ret <= 0)
             {
-                throwException (ret == 0 ? ECONNRESET : errno);
+                throw errorException (ret == 0 ? ECONNRESET : errno);
             }
             received += ret;
             p += ret;
@@ -245,7 +245,7 @@ ssize_t cSocket::send (const void *buf, size_t len,
         ssize_t ret = ::sendto (m_fd, p, (size_t)toBeSent, MSG_NOSIGNAL, dest_addr, addrlen);
         if (ret < 0)
         {
-            throwException (errno);
+            throw errorException (errno);
         }
         toBeSent -= ret;
         p += ret;
@@ -270,7 +270,7 @@ void cSocket::getaddrinfo (const std::string& node, uint16_t remotePort,
     int s = ::getaddrinfo (node.c_str (), std::to_string(remotePort).c_str(), &hints, &res);
     if (s != 0)
     {
-        throwException (gai_strerror(s));
+        throw errorException (gai_strerror(s));
     }
     for (rp = res; rp != NULL; rp = rp->ai_next)
     {
@@ -287,7 +287,7 @@ std::string cSocket::getsockname ()
 
     if (::getsockname(m_fd, (struct sockaddr *) &addr, &len))
     {
-        throwException (errno);
+        throw errorException (errno);
     }
 
     out << inet_ntop((struct sockaddr *) &addr) << ":" << ntohs(((struct sockaddr_in6*)&addr)->sin6_port);
@@ -302,7 +302,7 @@ std::string cSocket::getpeername ()
 
     if (::getpeername(m_fd, (struct sockaddr *) &addr, &len))
     {
-        throwException (errno);
+        throw errorException (errno);
     }
 
     out << inet_ntop((struct sockaddr *) &addr) << ":" << ntohs(((struct sockaddr_in6*)&addr)->sin6_port);
@@ -325,7 +325,7 @@ std::string cSocket::inet_ntop (const struct sockaddr* addr)
 
     if (!ret)
     {
-        throwException (errno);
+        throw errorException (errno);
     }
     return ret;
 }
@@ -335,18 +335,8 @@ void cSocket::enableOption (int level, int optname)
     const int enable = 1;
     if (setsockopt (m_fd, level, optname, &enable, sizeof(enable)))
     {
-        throwException (errno);
+        throw errorException (errno);
     }
-}
-
-void cSocket::throwException (int err)
-{
-    throw errorException (err);
-}
-
-void cSocket::throwException (const char* err)
-{
-    throw errorException (err);
 }
 
 cSocket::Properties::Properties (int family, int type, int protocol)

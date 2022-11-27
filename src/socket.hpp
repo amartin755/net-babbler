@@ -109,8 +109,6 @@ private:
     cSocket (int fd, int timeout = -1);
     void initPoll (int evfd);
     void enableOption (int level, int optname);
-    static void throwException (int err);
-    static void throwException (const char* err);
     struct info
     {
         info (const struct addrinfo& info)
