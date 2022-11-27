@@ -186,7 +186,8 @@ bool cSocket::connect (const struct sockaddr *adr, socklen_t adrlen) noexcept
     return ::connect (m_fd, adr, adrlen) == 0;
 }
 
-ssize_t cSocket::recv (void *buf, size_t len, size_t atleast, int flags)
+ssize_t cSocket::recv (void *buf, size_t len, size_t atleast,
+    struct sockaddr * src_addr, socklen_t * addrlen)
 {
     BUG_ON (atleast > len);
 
@@ -215,7 +216,7 @@ ssize_t cSocket::recv (void *buf, size_t len, size_t atleast, int flags)
         if (m_pollfd[0].revents & POLLIN)
         {
             errno = 0;
-            ssize_t ret = ::recv (m_fd, p, len - received, flags);
+            ssize_t ret = ::recvfrom (m_fd, p, len - received, 0, src_addr, addrlen);
             if (ret <= 0)
             {
                 throwException (ret == 0 ? ECONNRESET : errno);
@@ -234,13 +235,14 @@ ssize_t cSocket::recv (void *buf, size_t len, size_t atleast, int flags)
     return received;
 }
 
-ssize_t cSocket::send (const void *buf, size_t len, int flags)
+ssize_t cSocket::send (const void *buf, size_t len,
+    const struct sockaddr *dest_addr, socklen_t addrlen)
 {
     const uint8_t* p = reinterpret_cast<const uint8_t*>(buf);
     ssize_t toBeSent = (ssize_t)len;
     do
     {
-        ssize_t ret = ::send (m_fd, p, (size_t)toBeSent, flags | MSG_NOSIGNAL);
+        ssize_t ret = ::sendto (m_fd, p, (size_t)toBeSent, MSG_NOSIGNAL, dest_addr, addrlen);
         if (ret < 0)
         {
             throwException (errno);

@@ -59,8 +59,10 @@ public:
         int backlog);
 
     cSocket accept (std::string& addr, uint16_t& port);
-    ssize_t recv (void *buf, size_t len, size_t atleast = 0, int flags = 0);
-    ssize_t send (const void *buf, size_t len, int flags = 0);
+    ssize_t recv (void *buf, size_t len, size_t atleast = 0,
+        struct sockaddr * src_addr = nullptr, socklen_t * addrlen = nullptr);
+    ssize_t send (const void *buf, size_t len,
+        const struct sockaddr *dest_addr = nullptr, socklen_t addrlen = 0);
 
     // get local address and port of socket
     std::string getsockname ();
