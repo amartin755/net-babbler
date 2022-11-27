@@ -27,22 +27,36 @@
 #include "socket.hpp"
 #include "semaphore.hpp"
 
+
+class cResponderThread
+{
+public:
+    cResponderThread (cSemaphore& threadLimit, cSocket s, unsigned socketBufSize, const char* proto);
+    ~cResponderThread ();
+    bool isFinished () {return m_finished;}
+
+    void connectionThreadFunc (cSocket s, unsigned socketBufSize, cSemaphore& threadLimit, const char* proto);
+
+private:
+    std::atomic<bool> m_finished;
+    std::thread       m_thread;
+};
+
 class cTcpListener
 {
 public:
     cTcpListener (const cSocket::Properties& proto, uint16_t localPort, unsigned socketBufSize, cSemaphore& threadLimit);
     ~cTcpListener ();
 
-    void listenerThreadFunc ();
-    void connectionThreadFunc (cSocket s);
-
 private:
+    void listenerThreadFunc ();
+
     std::atomic<bool>       m_terminate;
     cSemaphore&             m_threadLimit;
     std::thread*            m_listenerThread;
     const cSocket::Properties m_protocol;
     uint16_t                m_localPort;
-    std::list<std::thread*> m_connThreads;
+    std::list<cResponderThread*> m_connThreads;
     unsigned                m_socketBufSize;
 };
 

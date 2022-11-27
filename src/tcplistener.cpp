@@ -49,7 +49,6 @@ cTcpListener::~cTcpListener ()
 
     for (auto thread : m_connThreads)
     {
-        thread->join ();
         delete thread;
     }
 }
@@ -66,10 +65,24 @@ void cTcpListener::listenerThreadFunc ()
             uint16_t remotePort;
 
             cSocket sConn = sListener.accept (remoteIp, remotePort);
-            m_connThreads.push_back (new std::thread (&cTcpListener::connectionThreadFunc, this, std::move(sConn)));
-
             Console::PrintVerbose ("Client %s connected to %s port %u\n",
                 remoteIp.c_str(), m_protocol.toString(), remotePort);
+
+            // create thread for this connection
+            m_connThreads.push_back (new cResponderThread (m_threadLimit, std::move(sConn),
+                m_socketBufSize, m_protocol.toString()));
+
+            // cleanup terminated threads
+            for (auto it = m_connThreads.begin(); it != m_connThreads.end();)
+            {
+                if ((*it)->isFinished())
+                {
+                    delete *it;
+                    it = m_connThreads.erase (it);
+                }
+                else
+                    ++it;
+            }
         }
     }
     catch (const cSocket::errorException& e)
@@ -78,14 +91,25 @@ void cTcpListener::listenerThreadFunc ()
     }
 }
 
-
-void cTcpListener::connectionThreadFunc (cSocket s)
+cResponderThread::cResponderThread (cSemaphore& threadLimit, cSocket s, unsigned socketBufSize, const char* proto)
+: m_finished (false), m_thread (&cResponderThread::connectionThreadFunc, this, std::move(s), socketBufSize, std::ref(threadLimit), proto)
 {
+
+}
+
+cResponderThread::~cResponderThread ()
+{
+    m_thread.join ();
+}
+
+void cResponderThread::connectionThreadFunc (cSocket s, unsigned socketBufSize, cSemaphore& threadLimit, const char* proto)
+{
+//    cSemaphore& limit = threadLimit;
     try
     {
-        cResponder responder (s, m_socketBufSize);
+        cResponder responder (s, socketBufSize);
 
-        while (!m_terminate)
+        while (1)
         {
             responder.doJob ();
         }
@@ -94,6 +118,7 @@ void cTcpListener::connectionThreadFunc (cSocket s)
     {
             Console::PrintError ("%s\n", e.what());
     }
-    Console::PrintDebug ("%s connection terminated\n", m_protocol.toString());
-    m_threadLimit.post ();
+    Console::PrintDebug ("%s connection terminated\n", proto);
+    m_finished = true;
+    threadLimit.post ();
 }
