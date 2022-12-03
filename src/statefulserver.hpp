@@ -42,11 +42,11 @@ private:
     std::thread       m_thread;
 };
 
-class cTcpListener
+class cStatefulServer
 {
 public:
-    cTcpListener (const cSocket::Properties& proto, uint16_t localPort, unsigned socketBufSize, cSemaphore& threadLimit);
-    ~cTcpListener ();
+    cStatefulServer (const cSocket::Properties& proto, uint16_t localPort, unsigned socketBufSize, cSemaphore& threadLimit);
+    ~cStatefulServer ();
 
 private:
     void listenerThreadFunc ();

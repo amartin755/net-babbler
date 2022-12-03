@@ -24,11 +24,11 @@
 
 #include <cstring>
 
-#include "tcplistener.hpp"
+#include "statefulserver.hpp"
 #include "console.hpp"
 #include "protocol.hpp"
 
-cTcpListener::cTcpListener (const cSocket::Properties& proto, uint16_t localPort, unsigned socketBufSize, cSemaphore& threadLimit)
+cStatefulServer::cStatefulServer (const cSocket::Properties& proto, uint16_t localPort, unsigned socketBufSize, cSemaphore& threadLimit)
     : m_terminate (false),
       m_threadLimit (threadLimit),
       m_listenerThread (nullptr),
@@ -36,10 +36,10 @@ cTcpListener::cTcpListener (const cSocket::Properties& proto, uint16_t localPort
       m_localPort (localPort),
       m_socketBufSize (socketBufSize)
 {
-    m_listenerThread = new std::thread (&cTcpListener::listenerThreadFunc, this);
+    m_listenerThread = new std::thread (&cStatefulServer::listenerThreadFunc, this);
 }
 
-cTcpListener::~cTcpListener ()
+cStatefulServer::~cStatefulServer ()
 {
     if (m_listenerThread)
     {
@@ -53,7 +53,7 @@ cTcpListener::~cTcpListener ()
     }
 }
 
-void cTcpListener::listenerThreadFunc ()
+void cStatefulServer::listenerThreadFunc ()
 {
     try
     {

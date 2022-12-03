@@ -21,7 +21,7 @@
 #include "bug.hpp"
 #include "application.hpp"
 #include "client.hpp"
-#include "tcplistener.hpp"
+#include "statefulserver.hpp"
 #include "event.hpp"
 #include "signal.hpp"
 #include "valueformatter.hpp"
@@ -238,7 +238,7 @@ int cApplication::execute (const std::list<std::string>& args)
     else
     {
         cSemaphore maxConnThreadCount (1000);
-        std::list<cTcpListener> servers;
+        std::list<cStatefulServer> servers;
         auto portList = cValueParser::rangeList (m_options.serverPorts);
         for (const auto& range : portList)
         {
