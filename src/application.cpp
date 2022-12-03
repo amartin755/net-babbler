@@ -21,7 +21,7 @@
 #include "bug.hpp"
 #include "application.hpp"
 #include "client.hpp"
-#include "statefulserver.hpp"
+#include "serverstateful.hpp"
 #include "event.hpp"
 #include "signal.hpp"
 #include "valueformatter.hpp"

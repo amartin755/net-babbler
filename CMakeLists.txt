@@ -90,7 +90,7 @@ set (SOURCES
     ${SOURCE_DIR}/application.cpp
     ${SOURCE_DIR}/socket.cpp
     ${SOURCE_DIR}/client.cpp
-    ${SOURCE_DIR}/statefulserver.cpp
+    ${SOURCE_DIR}/serverstateful.cpp
     ${SOURCE_DIR}/valueparser.cpp
 )
 set (LIBTCPPUMP_SOURCE_DIR ${SOURCE_DIR}/libtcppump)

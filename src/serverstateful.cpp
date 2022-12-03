@@ -24,7 +24,7 @@
 
 #include <cstring>
 
-#include "statefulserver.hpp"
+#include "serverstateful.hpp"
 #include "console.hpp"
 #include "protocol.hpp"
 
