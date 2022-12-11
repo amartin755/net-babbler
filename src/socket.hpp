@@ -71,8 +71,8 @@ public:
     static std::string inet_ntop (const struct sockaddr* addr);
     void setCancelEvent (cEvent& eventCancel);
     bool isValid () const {return m_fd >= 0;}
-    // expeptions thrown by cSocket
 
+    // expeptions thrown by cSocket
     class eventException : public std::exception
     {
     public:
@@ -169,7 +169,36 @@ public:
     };
 };
 
-
+#include <mutex>
+#include <map>
+class cSockDescr
+{
+public:
+    cSockDescr (int fd) : m_fd (fd)
+    {
+        if (m_fd >= 0)
+        {
+            m_lock.lock();
+            ++m_fdRefs[fd];
+            m_lock.unlock();
+        }
+    }
+    ~cSockDescr ()
+    {
+        if (m_fd >= 0)
+        {
+            m_lock.lock();
+            unsigned refs = --m_fdRefs[m_fd];
+            if (!refs)
+                close (m_fd);
+            m_lock.unlock();
+        }
+    }
+private:
+    int m_fd;
+    static std::mutex m_lock;
+    static std::map<int, unsigned> m_fdRefs;
+};
 
 
 #endif
