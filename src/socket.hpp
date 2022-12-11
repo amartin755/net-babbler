@@ -30,6 +30,7 @@
 #include <string>
 #include <cstring>
 
+#include "strerror.h"
 #include "event.hpp"
 
 

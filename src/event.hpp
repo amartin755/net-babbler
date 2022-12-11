@@ -26,7 +26,7 @@
 #include <stdexcept>
 
 #include "bug.hpp"
-
+#include "strerror.h"
 
 class cEvent
 {

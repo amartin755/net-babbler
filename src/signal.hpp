@@ -26,6 +26,8 @@
 #include <cstring>
 #include <stdexcept>
 
+#include "strerror.h"
+
 
 class cSignal
 {
