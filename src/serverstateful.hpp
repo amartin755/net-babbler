@@ -16,8 +16,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TCPLISTENER_HPP
-#define TCPLISTENER_HPP
+#ifndef SERVER_STATEFUL_HPP
+#define SERVER_STATEFUL_HPP
 
 #include <string>
 #include <thread>

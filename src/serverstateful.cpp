@@ -104,7 +104,6 @@ cResponderThread::~cResponderThread ()
 
 void cResponderThread::connectionThreadFunc (cSocket s, unsigned socketBufSize, cSemaphore& threadLimit, const char* proto)
 {
-//    cSemaphore& limit = threadLimit;
     try
     {
         cResponder responder (s, socketBufSize);
