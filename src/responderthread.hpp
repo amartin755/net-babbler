@@ -16,35 +16,29 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SERVER_STATEFUL_HPP
-#define SERVER_STATEFUL_HPP
+#ifndef RESPONDER_THREAD_HPP
+#define RESPONDER_THREAD_HPP
 
-#include <string>
 #include <thread>
 #include <atomic>
-#include <list>
 
 #include "socket.hpp"
 #include "semaphore.hpp"
-#include "responderthread.hpp"
 
 
-class cStatefulServer
+class cResponderThread
 {
 public:
-    cStatefulServer (const cSocket::Properties& proto, uint16_t localPort, unsigned socketBufSize, cSemaphore& threadLimit);
-    ~cStatefulServer ();
+    cResponderThread (cSemaphore& threadLimit, cSocket s, unsigned socketBufSize, const char* proto);
+    ~cResponderThread ();
+    bool isFinished () {return m_finished;}
+
+    void connectionThreadFunc (cSocket s, unsigned socketBufSize, cSemaphore& threadLimit, const char* proto);
 
 private:
-    void listenerThreadFunc ();
-
-    std::atomic<bool>       m_terminate;
-    cSemaphore&             m_threadLimit;
-    std::thread*            m_listenerThread;
-    const cSocket::Properties m_protocol;
-    uint16_t                m_localPort;
-    std::list<cResponderThread*> m_connThreads;
-    unsigned                m_socketBufSize;
+    std::atomic<bool> m_finished;
+    std::thread       m_thread;
 };
+
 
 #endif

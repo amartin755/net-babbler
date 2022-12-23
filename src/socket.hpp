@@ -28,50 +28,57 @@
 #include <string>
 #include <list>
 #include <string>
+#include <mutex>
+#include <map>
 #include <cstring>
 
 #include "strerror.h"
 #include "event.hpp"
 
-
-// tcp: AF_INET/AF_INET6, SOCK_STREAM, 0
-// udp: AF_INET/AF_INET6, SOCK_DGRAM, 0
-// raw IP: AF_INET/AF_INET6, SOCK_RAW, proto
-// sctp: AF_INET/AF_INET6, SOCK_STREAM/SOCK_SEQPACKET, IPPROTO_SCTP
-// dccp: AF_INET/AF_INET6, SOCK_DCCP, IPPROTO_DCCP
+/**
+ * TODO this header exposes way too many implementation details and OS dependencies
+ * 
+ * The idea of cSocket is to define a OS independent abstraction layer on top of
+ * the native socket implementation. Therefore this header must not use OS specific
+ * interfaces.
+ */
 
 class cSocket
 {
+    // --- begin nested classes ---
 public:
-    // no copy constructor and copy operator, we only allow move semantic
-    // because file descriptors owned by cSocket will automatically
-    // be closed in destructor
-    cSocket (const cSocket&) = delete;
-    cSocket& operator=(const cSocket&) = delete;
+    class Properties
+    {
+    public:
+        Properties ();
+        static Properties tcp (bool ipv4 = true, bool ipv6 = true);
+        static Properties udp (bool ipv4 = true, bool ipv6 = true);
+        static Properties sctp (bool ipv4 = true, bool ipv6 = true);
+        static Properties dccp (bool ipv4 = true, bool ipv6 = true);
+        static Properties raw (uint8_t protocol, bool ipv4 = true, bool ipv6 = true);
+        void setIpFamily (bool ipv4, bool ipv6);
+        int family () const
+        {
+            return m_family;
+        }
+        int type () const
+        {
+            return m_type;
+        }
+        int protocol () const
+        {
+            return m_protocol;
+        }
+        const char* toString () const;
+        bool isConnectionless () const;
 
-    cSocket (cSocket&&);
-    ~cSocket ();
-    cSocket& operator= (cSocket&& obj);
-
-    class Properties;
-    static cSocket connect (const Properties& properties, const std::string& node,
-        uint16_t remotePort, uint16_t localPort);
-    static cSocket listen (const Properties& properties, uint16_t port,
-        int backlog);
-
-    cSocket accept (std::string& addr, uint16_t& port);
-    ssize_t recv (void *buf, size_t len, size_t atleast = 0,
-        struct sockaddr * src_addr = nullptr, socklen_t * addrlen = nullptr);
-    ssize_t send (const void *buf, size_t len,
-        const struct sockaddr *dest_addr = nullptr, socklen_t addrlen = 0);
-
-    // get local address and port of socket
-    std::string getsockname ();
-    // get remote address and port of socket
-    std::string getpeername ();
-    static std::string inet_ntop (const struct sockaddr* addr);
-    void setCancelEvent (cEvent& eventCancel);
-    bool isValid () const {return m_fd >= 0;}
+    private:
+        Properties (int family, int type, int protocol);
+        static int toFamily (bool ipv4, bool ipv6);
+        int m_family;
+        int m_type;
+        int m_protocol;
+    };
 
     // expeptions thrown by cSocket
     class eventException : public std::exception
@@ -105,6 +112,94 @@ public:
     };
 
 private:
+    class cHandle
+    {
+    public:
+        cHandle (const cHandle&) = delete;
+        cHandle& operator=(const cHandle&) = delete;
+        cHandle (cHandle&& obj)
+        {
+            m_handle = obj.m_handle;
+            obj.m_handle = -1;
+        }
+
+        cHandle& operator= (cHandle&& obj)
+        {
+            m_handle = obj.m_handle;
+            obj.m_handle = -1;
+            return *this;
+        }
+
+        cHandle (int handle) : m_handle (handle)
+        {
+            if (valid())
+            {
+                m_lock.lock();
+                ++m_fdRefs[handle];
+                m_lock.unlock();
+            }
+        }
+        virtual ~cHandle ()
+        {
+            if (valid())
+            {
+                m_lock.lock();
+                unsigned refs = --m_fdRefs[m_handle];
+                if (!refs)
+                    close (m_handle);
+                m_lock.unlock();
+            }
+        }
+        bool valid () const
+        {
+            return (m_handle >= 0);
+        }
+        operator int () const
+        {
+            return m_handle;
+        }
+
+    private:
+        int m_handle;
+        static std::mutex m_lock;
+        static std::map<int, unsigned> m_fdRefs;
+    };
+    // --- end nested classes ---
+
+
+public:
+    // no copy constructor and copy operator, we only allow move semantic
+    // because file descriptors owned by cSocket are reference counted and 
+    // will automatically be closed in destructor
+    cSocket (const cSocket&) = delete;
+    cSocket& operator=(const cSocket&) = delete;
+
+    cSocket (cSocket&&);
+    ~cSocket ();
+    cSocket& operator= (cSocket&& obj);
+    cSocket clone () const;
+
+    class Properties;
+    static cSocket connect (const Properties& properties, const std::string& node,
+        uint16_t remotePort, uint16_t localPort);
+    static cSocket listen (const Properties& properties, uint16_t port,
+        int backlog);
+
+    cSocket accept (std::string& addr, uint16_t& port);
+    ssize_t recv (void *buf, size_t len, size_t atleast = 0,
+        struct sockaddr * src_addr = nullptr, socklen_t * addrlen = nullptr);
+    ssize_t send (const void *buf, size_t len,
+        const struct sockaddr *dest_addr = nullptr, socklen_t addrlen = 0);
+
+    // get local address and port of socket
+    std::string getsockname ();
+    // get remote address and port of socket
+    std::string getpeername ();
+    static std::string inet_ntop (const struct sockaddr* addr);
+    void setCancelEvent (cEvent& eventCancel);
+    bool isValid () const {return m_fd.valid();}
+
+private:
     cSocket ();
     cSocket (int domain, int type, int protocol, int timeout = -1);
     cSocket (int fd, int timeout = -1);
@@ -132,73 +227,10 @@ private:
     bool connect (const struct sockaddr *adr, socklen_t adrlen) noexcept;
 
 private:
-    int m_fd;
+    cHandle m_fd;
     struct pollfd m_pollfd[2]; // 0: socket fd, 1: event fd
     int m_timeout_ms;
 
-public:
-    class Properties
-    {
-    public:
-        Properties ();
-        static Properties tcp (bool ipv4 = true, bool ipv6 = true);
-        static Properties udp (bool ipv4 = true, bool ipv6 = true);
-        static Properties sctp (bool ipv4 = true, bool ipv6 = true);
-        static Properties dccp (bool ipv4 = true, bool ipv6 = true);
-        static Properties raw (uint8_t protocol, bool ipv4 = true, bool ipv6 = true);
-        void setIpFamily (bool ipv4, bool ipv6);
-        int family () const
-        {
-            return m_family;
-        }
-        int type () const
-        {
-            return m_type;
-        }
-        int protocol () const
-        {
-            return m_protocol;
-        }
-        const char* toString () const;
-
-    private:
-        Properties (int family, int type, int protocol);
-        static int toFamily (bool ipv4, bool ipv6);
-        int m_family;
-        int m_type;
-        int m_protocol;
-    };
-};
-
-#include <mutex>
-#include <map>
-class cSockDescr
-{
-public:
-    cSockDescr (int fd) : m_fd (fd)
-    {
-        if (m_fd >= 0)
-        {
-            m_lock.lock();
-            ++m_fdRefs[fd];
-            m_lock.unlock();
-        }
-    }
-    ~cSockDescr ()
-    {
-        if (m_fd >= 0)
-        {
-            m_lock.lock();
-            unsigned refs = --m_fdRefs[m_fd];
-            if (!refs)
-                close (m_fd);
-            m_lock.unlock();
-        }
-    }
-private:
-    int m_fd;
-    static std::mutex m_lock;
-    static std::map<int, unsigned> m_fdRefs;
 };
 
 

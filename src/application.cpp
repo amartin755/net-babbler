@@ -22,6 +22,7 @@
 #include "application.hpp"
 #include "client.hpp"
 #include "serverstateful.hpp"
+#include "serverstateless.hpp"
 #include "event.hpp"
 #include "signal.hpp"
 #include "valueformatter.hpp"
@@ -239,6 +240,7 @@ int cApplication::execute (const std::list<std::string>& args)
     {
         cSemaphore maxConnThreadCount (1000);
         std::list<cStatefulServer> servers;
+        std::list<cStatelessServer> udpServers;
         auto portList = cValueParser::rangeList (m_options.serverPorts);
         for (const auto& range : portList)
         {
@@ -249,6 +251,8 @@ int cApplication::execute (const std::list<std::string>& args)
                 servers.emplace_back (cSocket::Properties::sctp(!m_options.ipv6Only, !m_options.ipv4Only),
                     (uint16_t)port, (unsigned)m_options.sockBufSize, maxConnThreadCount);
                 servers.emplace_back (cSocket::Properties::dccp(!m_options.ipv6Only, !m_options.ipv4Only),
+                    (uint16_t)port, (unsigned)m_options.sockBufSize, maxConnThreadCount);
+                udpServers.emplace_back (cSocket::Properties::udp(!m_options.ipv6Only, !m_options.ipv4Only),
                     (uint16_t)port, (unsigned)m_options.sockBufSize, maxConnThreadCount);
             }
         }

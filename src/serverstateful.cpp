@@ -16,17 +16,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/ip.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-
-#include <cstring>
-
 #include "serverstateful.hpp"
 #include "console.hpp"
-#include "protocol.hpp"
 
 cStatefulServer::cStatefulServer (const cSocket::Properties& proto, uint16_t localPort, unsigned socketBufSize, cSemaphore& threadLimit)
     : m_terminate (false),
@@ -89,35 +80,4 @@ void cStatefulServer::listenerThreadFunc ()
     {
         Console::PrintError ("%s\n", e.what());
     }
-}
-
-cResponderThread::cResponderThread (cSemaphore& threadLimit, cSocket s, unsigned socketBufSize, const char* proto)
-: m_finished (false), m_thread (&cResponderThread::connectionThreadFunc, this, std::move(s), socketBufSize, std::ref(threadLimit), proto)
-{
-
-}
-
-cResponderThread::~cResponderThread ()
-{
-    m_thread.join ();
-}
-
-void cResponderThread::connectionThreadFunc (cSocket s, unsigned socketBufSize, cSemaphore& threadLimit, const char* proto)
-{
-    try
-    {
-        cResponder responder (s, socketBufSize);
-
-        while (1)
-        {
-            responder.doJob ();
-        }
-    }
-    catch (const cSocket::errorException& e)
-    {
-            Console::PrintError ("%s\n", e.what());
-    }
-    Console::PrintDebug ("%s connection terminated\n", proto);
-    m_finished = true;
-    threadLimit.post ();
 }

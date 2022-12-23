@@ -23,23 +23,39 @@
 
 #include "bug.hpp"
 #include "socket.hpp"
+#include "console.hpp"
+
+std::mutex cSocket::cHandle::m_lock;
+std::map<int, unsigned> cSocket::cHandle::m_fdRefs;
+
 
 cSocket::cSocket () : m_fd (-1), m_timeout_ms (-1)
 {
     initPoll (-1);
 }
 
-cSocket::cSocket (cSocket&& obj)
+cSocket::cSocket (cSocket&& obj) 
+    : m_fd (std::move(obj.m_fd))
 {
-    *this = std::move(obj);
+    std::memcpy (&m_pollfd, &obj.m_pollfd, sizeof (m_pollfd));
+    m_timeout_ms = obj.m_timeout_ms;
 }
 
+/*
+ * supported protcols (domain, type, protocol):
+ *
+ * tcp: AF_INET/AF_INET6, SOCK_STREAM, 0
+ * udp: AF_INET/AF_INET6, SOCK_DGRAM, 0
+ * raw IP: AF_INET/AF_INET6, SOCK_RAW, proto
+ * sctp: AF_INET/AF_INET6, SOCK_STREAM/SOCK_SEQPACKET, IPPROTO_SCTP
+ * dccp: AF_INET/AF_INET6, SOCK_DCCP, IPPROTO_DCCP
+ */
 cSocket::cSocket (int domain, int type, int protocol, int timeout)
-    : m_timeout_ms (timeout)
+    : m_fd (-1), m_timeout_ms (timeout)
 {
     m_fd = socket (domain, type, protocol);
 
-    if (m_fd < 0)
+    if (!m_fd.valid())
     {
         throw errorException (errno);
     }
@@ -55,18 +71,23 @@ cSocket::cSocket (int fd, int timeout)
 
 cSocket::~cSocket ()
 {
-    if (m_fd >= 0)
-        close (m_fd);
 }
 
 cSocket& cSocket::operator= (cSocket&& obj)
 {
     std::memcpy (&m_pollfd, &obj.m_pollfd, sizeof (m_pollfd));
     m_timeout_ms = obj.m_timeout_ms;
-    m_fd         = obj.m_fd;
+    m_fd         = std::move(obj.m_fd);
 
-    obj.m_fd = -1;
     return *this;
+}
+
+cSocket cSocket::clone () const
+{
+    cSocket theClone (m_fd, m_timeout_ms);
+    std::memcpy (&theClone.m_pollfd, &m_pollfd, sizeof (m_pollfd));
+
+    return theClone;
 }
 
 void cSocket::setCancelEvent (cEvent& eventCancel)
@@ -150,7 +171,7 @@ cSocket cSocket::listen (const Properties& prop, uint16_t port, int backlog)
     }
 
     sListener.bind ((struct sockaddr *) &address, sizeof (address));
-    if (::listen (sListener.m_fd, backlog))
+    if (!prop.isConnectionless() && ::listen (sListener.m_fd, backlog))
     {
         throw errorException (errno);
     }
@@ -406,4 +427,9 @@ int cSocket::Properties::toFamily (bool ipv4, bool ipv6)
     if (ipv4 && ipv6)
         return  AF_UNSPEC;
     return  ipv4 ? AF_INET : AF_INET6;
+}
+
+bool cSocket::Properties::isConnectionless () const
+{
+    return !(m_type == SOCK_STREAM || m_type == SOCK_DCCP);
 }

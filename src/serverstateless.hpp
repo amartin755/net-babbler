@@ -26,21 +26,8 @@
 
 #include "socket.hpp"
 #include "semaphore.hpp"
+#include "responderthread.hpp"
 
-
-class cResponderThread
-{
-public:
-    cResponderThread (cSemaphore& threadLimit, cSocket s, unsigned socketBufSize, const char* proto);
-    ~cResponderThread ();
-    bool isFinished () {return m_finished;}
-
-    void connectionThreadFunc (cSocket s, unsigned socketBufSize, cSemaphore& threadLimit, const char* proto);
-
-private:
-    std::atomic<bool> m_finished;
-    std::thread       m_thread;
-};
 
 class cStatelessServer
 {
@@ -53,7 +40,6 @@ private:
 
     std::atomic<bool>       m_terminate;
     cSemaphore&             m_threadLimit;
-    std::thread*            m_listenerThread;
     const cSocket::Properties m_protocol;
     uint16_t                m_localPort;
     std::list<cResponderThread*> m_connThreads;
