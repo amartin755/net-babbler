@@ -88,7 +88,7 @@ message (STATUS "  git commit = ${GIT_COMMIT}")
 
 # target dnscache (main library)
 ###############################################################################
-add_executable (net-babbler)
+add_executable (nb)
 set (SOURCE_DIR src)
 set (SOURCES
     ${SOURCE_DIR}/strerror.cpp
@@ -106,8 +106,8 @@ set (LIBTCPPUMP_SOURCES
     ${LIBTCPPUMP_SOURCE_DIR}/cmdline.cpp
 )
 
-target_sources (net-babbler PRIVATE ${SOURCES} ${LIBTCPPUMP_SOURCES})
-target_include_directories (net-babbler
+target_sources (nb PRIVATE ${SOURCES} ${LIBTCPPUMP_SOURCES})
+target_include_directories (nb
     PRIVATE ${LIBTCPPUMP_SOURCE_DIR})
-target_link_libraries (net-babbler pthread)
+target_link_libraries (nb pthread)
 
