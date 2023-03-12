@@ -100,14 +100,11 @@ set (SOURCES
     ${SOURCE_DIR}/valueparser.cpp
     ${SOURCE_DIR}/responderthread.cpp
 )
-set (LIBTCPPUMP_SOURCE_DIR ${SOURCE_DIR}/libtcppump)
-set (LIBTCPPUMP_SOURCES
-    ${LIBTCPPUMP_SOURCE_DIR}/console.cpp
-    ${LIBTCPPUMP_SOURCE_DIR}/cmdline.cpp
-)
+add_subdirectory(libcmdline)
 
 target_sources (nb PRIVATE ${SOURCES} ${LIBTCPPUMP_SOURCES})
 target_include_directories (nb
-    PRIVATE ${LIBTCPPUMP_SOURCE_DIR})
-target_link_libraries (nb pthread)
+    PRIVATE libcmdline/lib)
+target_link_libraries (nb PUBLIC pthread)
+target_link_libraries (nb PRIVATE cmdline)
 

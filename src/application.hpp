@@ -64,7 +64,8 @@ class cStats;
 class cApplication : public cCmdlineApp
 {
 public:
-    cApplication (const char* name, const char* brief, const char* usage, const char* description);
+    cApplication (const char* name, const char* brief, const char* usage, const char* description, const char* version,
+        const char* build, const char* buildDetails);
     virtual ~cApplication();
 
     int execute (const std::list<std::string>& args);

@@ -31,8 +31,9 @@
 
 
 
-cApplication::cApplication(const char* name, const char* brief, const char* usage, const char* description)
-: cCmdlineApp (name, brief, usage, description)
+cApplication::cApplication(const char* name, const char* brief, const char* usage, const char* description, const char* version,
+        const char* build, const char* buildDetails)
+: cCmdlineApp (name, brief, usage, description, version, build, buildDetails)
 {
     addCmdLineOption (true, 'v', "verbose",
             "When parsing and printing, produce verbose output. This option can be supplied multiple times\n\t"
@@ -313,9 +314,10 @@ void cApplication::printStatistics (const cStats& stats, unsigned duration, cons
 int main(int argc, char* argv[])
 {
     cApplication app (
-            "tcppump",
-            "An Ethernet packet generator",
-            "tcppump [OPTIONS] [destination] [port]",
-            "Homepage: <https://github.com/amartin755/tcppump>");
+            "net-babbler",
+            "A client/server traffic simulator",
+            "nb [OPTIONS] [destination] [port]",
+            "Homepage: <https://github.com/amartin755/net-bubbler>",
+            APP_VERSION, BUILD_TIME,  GIT_BRANCH GIT_COMMIT BUILD_TYPE);
     return app.main (argc, argv);
 }
