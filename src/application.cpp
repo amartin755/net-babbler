@@ -59,6 +59,8 @@ cApplication::cApplication(const char* name, const char* brief, const char* usag
             "Print every SECONDS periodic status (default 3s).", &m_options.statusUpdateTime);
     addCmdLineOption (true, 0, "proto-settings", "SETTINGS",
             "TODO, maybe split to single options", &m_options.comSettings);
+    addCmdLineOption (true, 'b', nullptr,
+            "Enable batch mode", &m_options.batchmode);
 }
 
 cApplication::~cApplication ()
@@ -207,6 +209,8 @@ int cApplication::execute (const std::list<std::string>& args)
             if (printStatus)
             {
                 printStatus = false;
+                if (!m_options.batchmode)
+                    Console::Clear ();
                 for (auto &cl : clients)
                 {
                     cStats statsDelta, statsSummary;

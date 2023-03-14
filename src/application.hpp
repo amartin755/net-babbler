@@ -41,6 +41,7 @@ struct appOptions
     int          ipv4Only;
     int          ipv6Only;
     const char*  comSettings;
+    int          batchmode;
 
     appOptions () :
         serverIP (nullptr),
@@ -54,7 +55,8 @@ struct appOptions
         statusUpdateTime (3),
         ipv4Only (0),
         ipv6Only (0),
-        comSettings ("1230,1400,12340,13500")
+        comSettings ("1230,1400,12340,13500"),
+        batchmode (0)
     {
     }
 };
