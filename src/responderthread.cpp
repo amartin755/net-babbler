@@ -34,9 +34,10 @@ cResponderThread::~cResponderThread ()
 
 void cResponderThread::connectionThreadFunc (cSocket s, unsigned socketBufSize, cSemaphore& threadLimit, const char* proto)
 {
+    Console::PrintDebug ("%s responder thread started\n", proto);
     try
     {
-        cResponder responder (s, socketBufSize);
+        cResponder responder (s, socketBufSize, true);
 
         while (1)
         {
@@ -47,7 +48,7 @@ void cResponderThread::connectionThreadFunc (cSocket s, unsigned socketBufSize, 
     {
             Console::PrintError ("%s\n", e.what());
     }
-    Console::PrintDebug ("%s connection terminated\n", proto);
+    Console::PrintDebug ("%s responder thread terminated\n", proto);
     m_finished = true;
     threadLimit.post ();
 }

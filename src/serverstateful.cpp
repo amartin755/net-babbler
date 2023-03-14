@@ -46,6 +46,7 @@ cStatefulServer::~cStatefulServer ()
 
 void cStatefulServer::listenerThreadFunc ()
 {
+    Console::PrintDebug ("%s listener thread started \n", m_protocol.toString());
     try
     {
         cSocket sListener = cSocket::listen (m_protocol, m_localPort, 50);
@@ -80,4 +81,5 @@ void cStatefulServer::listenerThreadFunc ()
     {
         Console::PrintError ("%s\n", e.what());
     }
+    Console::PrintDebug ("%s listener thread terminated \n", m_protocol.toString());
 }

@@ -29,10 +29,11 @@ cStatelessServer::cStatelessServer (const cSocket::Properties& proto, uint16_t l
     try
     {
         cSocket sListener = cSocket::listen (m_protocol, m_localPort, 0);
-        for (int n = 0; n < 2; n++)
+        long numberOfCPUs = sysconf(_SC_NPROCESSORS_ONLN);
+
+        for (int n = std::max ((int)numberOfCPUs, 4); n > 0; n--)
         {
-//            new cResponderThread(threadLimit, std::move(sListener), socketBufSize, proto.toString());
-            m_connThreads.push_back (new cResponderThread(threadLimit, std::move(sListener), socketBufSize, proto.toString()));
+            m_connThreads.push_back (new cResponderThread(threadLimit, std::move(sListener.clone()), socketBufSize, proto.toString()));
         }
     }
     catch (const cSocket::errorException& e)

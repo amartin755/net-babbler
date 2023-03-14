@@ -127,11 +127,12 @@ public:
         h->initRequest (seq, reqSize, respSize);
         send (h, reqSize, true);
     }
-    void sendResponse (uint64_t seq, unsigned respSize)
+    void sendResponse (uint64_t seq, unsigned respSize,
+        const struct sockaddr *dest_addr = nullptr, socklen_t addrlen = 0)
     {
         cProtocolHeader* h = (cProtocolHeader*)m_buf;
         h->initResponse (seq, respSize);
-        send (h, respSize, false);
+        send (h, respSize, false, dest_addr, addrlen);
     }
     void recvResponse (uint64_t expSeq)
     {
@@ -143,10 +144,11 @@ public:
         if (expSeq != seq)
             throw cProtocolException ("Unexpected sequence number");
     }
-    void recvRequest (uint64_t& seq, uint32_t& expRespLen)
+    void recvRequest (uint64_t& seq, uint32_t& expRespLen,
+        struct sockaddr * src_addr = nullptr, socklen_t * addrlen = nullptr)
     {
         bool isRequest = true;
-        seq = receive (isRequest, expRespLen);
+        seq = receive (isRequest, expRespLen, src_addr, addrlen);
         if (!isRequest)
             throw cProtocolException ("Unexpected packet type");
     }
@@ -158,7 +160,8 @@ public:
     }
 
 private:
-    void send (cProtocolHeader* h, unsigned size, int incr)
+    void send (cProtocolHeader* h, unsigned size, int incr,
+        const struct sockaddr *dest_addr = nullptr, socklen_t addrlen = 0)
     {
         const unsigned totalLen = size + sizeof(cProtocolHeader);
         uint8_t* p              = m_buf + sizeof (cProtocolHeader);
@@ -170,16 +173,18 @@ private:
             for (; sent < totalLen && p < (m_buf + m_bufsize); sent++)
                 *p++ = incr ? ++counter : --counter;
 
-            uint64_t sentLen = (uint64_t)m_socket.send (m_buf, p - m_buf);
+            uint64_t sentLen = (uint64_t)m_socket.send (m_buf, p - m_buf, dest_addr, addrlen);
             updateTransmitStats (sentLen, sent < totalLen ? 0 : 1);
             p = m_buf;
         }
     }
 
-    uint64_t receive (bool& isRequest, uint32_t& options)
+    uint64_t receive (bool& isRequest, uint32_t& options,
+        struct sockaddr * src_addr = nullptr, socklen_t * addrlen = nullptr)
     {
         // first try to at least receive the cProtocolHeader
-        ssize_t rcvLen = m_socket.recv (m_buf, m_bufsize, sizeof (cProtocolHeader));
+        ssize_t rcvLen = m_socket.recv (m_buf, m_bufsize, sizeof (cProtocolHeader),
+            src_addr, addrlen);
         // is this our cProtocolHeader?
         cProtocolHeader* h = (cProtocolHeader*)m_buf;
         if (!h->checkChecksum())
@@ -202,7 +207,7 @@ private:
         // receive the remaining part of the message
         while (toBeReceived > 0)
         {
-            rcvLen = m_socket.recv (m_buf, sizeof(m_bufsize));
+            rcvLen = m_socket.recv (m_buf, sizeof(m_bufsize), 0, src_addr, addrlen);
             updateReceiveStats (rcvLen, 0);
             toBeReceived -= rcvLen;
             checkPayload (m_buf, rcvLen, isRequest, expPayloadVal);
@@ -319,18 +324,42 @@ private:
 class cResponder : public cBabblerProtocol
 {
 public:
-    cResponder (cSocket& sock, unsigned bufsize)
-        : cBabblerProtocol (sock, bufsize)
+    cResponder (cSocket& sock, unsigned bufsize, bool isConnectionless = false)
+        : cBabblerProtocol (sock, bufsize),
+          m_isConnectionless (isConnectionless),
+          m_remoteAddr (nullptr)
     {
+        if (m_isConnectionless)
+        {
+            m_remoteAddr = new sockaddr_storage;
+            std::memset (m_remoteAddr, 0, sizeof (*m_remoteAddr));
+        }
+    }
+    ~cResponder ()
+    {
+        delete m_remoteAddr;
     }
 
     void doJob ()
     {
         uint64_t seq;
         uint32_t expSeqLen;
-        recvRequest (seq, expSeqLen);
-        sendResponse (seq, expSeqLen);
+
+        if (m_isConnectionless)
+        {
+            socklen_t addrlen = sizeof (*m_remoteAddr);
+            recvRequest (seq, expSeqLen, (sockaddr*)m_remoteAddr, &addrlen);
+            sendResponse (seq, expSeqLen, (sockaddr*)m_remoteAddr, addrlen);
+        }
+        else
+        {
+            recvRequest (seq, expSeqLen);
+            sendResponse (seq, expSeqLen);
+        }
     }
+private:
+    bool m_isConnectionless;
+    sockaddr_storage* m_remoteAddr;
 };
 
 #endif
