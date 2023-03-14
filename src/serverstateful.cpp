@@ -56,8 +56,8 @@ void cStatefulServer::listenerThreadFunc ()
             uint16_t remotePort;
 
             cSocket sConn = sListener.accept (remoteIp, remotePort);
-            Console::PrintVerbose ("Client %s connected to %s port %u\n",
-                remoteIp.c_str(), m_protocol.toString(), remotePort);
+            Console::PrintVerbose ("Client %s:%u connected to %s port %u\n",
+                remoteIp.c_str(), remotePort, m_protocol.toString(), m_localPort);
 
             // create thread for this connection
             m_connThreads.push_back (new cResponderThread (m_threadLimit, std::move(sConn),
