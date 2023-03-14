@@ -121,6 +121,8 @@ public:
     }
     void sendRequest (uint64_t seq, unsigned reqSize, unsigned respSize)
     {
+        reqSize  -= sizeof (cProtocolHeader);
+        respSize -= sizeof (cProtocolHeader);
         cProtocolHeader* h = (cProtocolHeader*)m_buf;
         h->initRequest (seq, reqSize, respSize);
         send (h, reqSize, true);

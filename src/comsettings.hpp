@@ -78,6 +78,12 @@ public:
             throw std::range_error ("invalid settings");
         }
 
+        const unsigned MIN_SIZE = 32;
+        if (m_requestSizeMin < MIN_SIZE ||
+            m_requestSizeMax < MIN_SIZE ||
+            m_responseSizeMin < MIN_SIZE ||
+            m_responseSizeMax < MIN_SIZE)
+            throw std::range_error ("size of request and response must be at least 32 bytes.");
     }
     // fixed size
     cComSettings (unsigned size) :
@@ -150,7 +156,7 @@ public:
     unsigned m_responseSizeMin;
     unsigned m_responseSizeMax;
     unsigned m_stepWidth;
-    bool m_disconnect;
+    bool m_disconnect; // disconnect after response is received
 };
 
 
