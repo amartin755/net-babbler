@@ -288,6 +288,8 @@ void cApplication::printStatistics (const cStats& stats, unsigned duration, cons
     // avoid division by zero
     if (!duration)
         duration = 1;
+    if (!duration2)
+        duration2 = 1;
     Console::Print (
         "requests: %8" PRIuFAST64 ", %9sB, %8sbit/s | %8" PRIuFAST64 ", %9sB, %8sbit/s\n"
         "replies:  %8" PRIuFAST64 ", %9sB, %8sbit/s | %8" PRIuFAST64 ", %9sB, %8sbit/s\n",
