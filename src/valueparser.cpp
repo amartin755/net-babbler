@@ -133,6 +133,8 @@ void cValueParser::clientConnection (const std::string& s, cSocket::Properties& 
             proto = cSocket::Properties::sctp();
         else if (s.substr (0, 4) == "dccp")
             proto = cSocket::Properties::dccp();
+        else if (s.substr (0, 2) == "ip")
+            proto = cSocket::Properties::raw(44); //FIXME harcoded value
     }
     std::string remainder (s.substr(offset));
 
