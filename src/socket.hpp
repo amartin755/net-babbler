@@ -202,7 +202,7 @@ public:
 private:
     cSocket ();
     cSocket (int domain, int type, int protocol, int timeout = -1);
-    cSocket (int fd, int timeout = -1);
+    cSocket (int fd, int timeout);
     void initPoll (int evfd);
     void enableOption (int level, int optname);
     struct info

@@ -25,7 +25,7 @@
 class cStats
 {
 public:
-    cStats () : m_sentPackets(0), m_sentOctets(0), m_receivedPackets(0), m_receivedOctets(0)
+    cStats () : m_sentPackets(0), m_sentOctets(0), m_receivedPackets(0), m_receivedOctets(0), m_errors(0), m_timeouts(0)
     {
     }
 
@@ -36,6 +36,8 @@ public:
         result.m_sentOctets      = m_sentOctets      + val.m_sentOctets;
         result.m_receivedPackets = m_receivedPackets + val.m_receivedPackets;
         result.m_receivedOctets  = m_receivedOctets  + val.m_receivedOctets;
+        result.m_errors          = m_errors          + val.m_errors;
+        result.m_timeouts        = m_timeouts        + val.m_timeouts;
         return result;
     }
     cStats operator- (const cStats& val) const
@@ -45,6 +47,8 @@ public:
         result.m_sentOctets      = m_sentOctets      - val.m_sentOctets;
         result.m_receivedPackets = m_receivedPackets - val.m_receivedPackets;
         result.m_receivedOctets  = m_receivedOctets  - val.m_receivedOctets;
+        result.m_errors          = m_errors          - val.m_errors;
+        result.m_timeouts        = m_timeouts        - val.m_timeouts;
         return result;
     }
     cStats& operator+= (const cStats& val)
@@ -53,6 +57,8 @@ public:
         m_sentOctets      += val.m_sentOctets;
         m_receivedPackets += val.m_receivedPackets;
         m_receivedOctets  += val.m_receivedOctets;
+        m_errors          += val.m_errors;
+        m_timeouts        += val.m_timeouts;
         return *this;
     }
     cStats& operator-= (const cStats& val)
@@ -61,6 +67,8 @@ public:
         m_sentOctets      -= val.m_sentOctets;
         m_receivedPackets -= val.m_receivedPackets;
         m_receivedOctets  -= val.m_receivedOctets;
+        m_errors          -= val.m_errors;
+        m_timeouts        -= val.m_timeouts;
         return *this;
     }
 
@@ -68,6 +76,8 @@ public:
     int_fast64_t m_sentOctets;
     int_fast64_t m_receivedPackets;
     int_fast64_t m_receivedOctets;
+    int_fast64_t m_errors;
+    int_fast64_t m_timeouts;
 };
 
 

@@ -199,7 +199,7 @@ cSocket cSocket::accept (std::string& addr, uint16_t& port)
     addr = inet_ntop ((struct sockaddr *)&address);
     port = ntohs (((struct sockaddr_in6*)&address)->sin6_port);
 
-    return cSocket (ret);
+    return cSocket (ret, m_timeout_ms);
 }
 
 bool cSocket::connect (const struct sockaddr *adr, socklen_t adrlen) noexcept
