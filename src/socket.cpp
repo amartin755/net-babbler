@@ -216,7 +216,6 @@ ssize_t cSocket::recv (void *buf, size_t len, size_t atleast,
     size_t received = 0;
     do
     {
-        errno = 0;
         int pollret = poll (m_pollfd, 2, m_timeout_ms);
         if (pollret < 0)
         {
@@ -236,14 +235,26 @@ ssize_t cSocket::recv (void *buf, size_t len, size_t atleast,
         // data received
         if (m_pollfd[0].revents & POLLIN)
         {
-            errno = 0;
-            ssize_t ret = ::recvfrom (m_fd, p, len - received, 0, src_addr, addrlen);
+            /*
+             We don't want to block here because we are using poll to be able to
+             react on timeouts and termination requests.
+             recvfrom will only block when two or more threads are sharing a socket. 
+             When data arrives both are unblocked (poll returns) and the first thread that calls 
+             recfrom will get the data. The second thread will be blocked by recfrom because there
+             is no more data to receive.
+             */
+            ssize_t ret = ::recvfrom (m_fd, p, len - received, MSG_DONTWAIT, src_addr, addrlen);
             if (ret <= 0)
             {
-                throw errorException (ret == 0 ? ECONNRESET : errno);
+                // in case recfrom would block we ignore it and continue. 
+                if (errno != EWOULDBLOCK && errno != EAGAIN)
+                    throw errorException (ret == 0 ? ECONNRESET : errno);
             }
-            received += ret;
-            p += ret;
+            else
+            {
+                received += ret;
+                p += ret;
+            }
         }
 
         // termination request
