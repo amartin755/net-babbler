@@ -299,7 +299,9 @@ void cSocket::getaddrinfo (const std::string& node, uint16_t remotePort,
     hints.ai_protocol = protocol;
     result.clear ();
 
-    int s = ::getaddrinfo (node.c_str (), std::to_string(remotePort).c_str(), &hints, &res);
+    int s = ::getaddrinfo (node.c_str (), 
+        sockType != SOCK_RAW ? std::to_string(remotePort).c_str() : NULL, 
+        &hints, &res);
     if (s != 0)
     {
         throw errorException (gai_strerror(s));
@@ -426,7 +428,7 @@ const char* cSocket::Properties::toString () const
     case SOCK_DCCP:
         return "dccp";
     case SOCK_RAW:
-        return "ip";
+        return "raw-ip";
     }
     BUG ("unkown protocol");
     return "";
