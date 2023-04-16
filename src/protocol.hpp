@@ -27,6 +27,7 @@
 #include <chrono>
 #include <thread>
 #include <mutex>
+#include <algorithm>
 
 #include "bug.hpp"
 #include "socket.hpp"
@@ -158,6 +159,7 @@ public:
         stats = m_stats;
         m_statsLock.unlock ();
     }
+    const unsigned MIN_LEN = 32;
 
 private:
     void send (cProtocolHeader* h, unsigned size, int incr,
@@ -246,6 +248,16 @@ private:
         m_statsLock.unlock ();
     }
 
+protected:
+    int_fast64_t getSentOctets () const
+    {
+        return m_stats.m_sentOctets;
+    }
+    int_fast64_t getReceivedOctets () const
+    {
+        return m_stats.m_receivedOctets;
+    }
+
 private:
     cSocket& m_socket;
     const size_t m_bufsize;
@@ -258,7 +270,7 @@ private:
 class cRequestor : public cBabblerProtocol
 {
 public:
-    cRequestor (cSocket& sock, unsigned bufsize, const cComSettings comSettings, uint64_t delay)
+    cRequestor (cSocket& sock, unsigned bufsize, const cComSettings comSettings, uint64_t delay, int_fast64_t sendLimit, int_fast64_t recvLimit)
         : cBabblerProtocol (sock, bufsize),
           m_comSettings (comSettings),
           m_currReqSize (m_comSettings.m_requestSizeMin),
@@ -266,13 +278,37 @@ public:
           m_reqDelta (0, m_comSettings.m_requestSizeMax - m_comSettings.m_requestSizeMin),
           m_respDelta (0, m_comSettings.m_responseSizeMax - m_comSettings.m_responseSizeMin),
           m_delay (delay),
+          m_sendLimitOctets(sendLimit),
+          m_recvLimitOctets(recvLimit),
           m_seq (0),
           m_wantStatus (m_delay > 10000)
     {
     }
+    bool isLimitReached (int_fast64_t limit, int_fast64_t sentRecvOctetts, unsigned& toBeSentReceived) const
+    {
+        if (limit > 0)
+        {
+            if (sentRecvOctetts >= limit)
+                return true;
 
+            int_fast64_t rest = limit - sentRecvOctetts;
+
+            toBeSentReceived = std::min ((int_fast64_t)toBeSentReceived, rest);
+            if (rest - toBeSentReceived < MIN_LEN && toBeSentReceived < rest)
+                toBeSentReceived -= MIN_LEN - (rest - toBeSentReceived);
+            if (toBeSentReceived < MIN_LEN) // should never happen
+                toBeSentReceived = MIN_LEN;
+        }
+        return false;
+    }
     void doJob ()
     {
+        if (isLimitReached (m_sendLimitOctets, getSentOctets(), m_currReqSize) ||
+            isLimitReached (m_recvLimitOctets, getReceivedOctets(), m_currRespSize))
+        {
+            throw cSocket::eventException ();
+        }
+
         sendRequest (++m_seq, m_currReqSize, m_currRespSize);
         auto start = std::chrono::high_resolution_clock::now();
         recvResponse (m_seq);
@@ -301,6 +337,11 @@ public:
             if (m_currRespSize > m_comSettings.m_responseSizeMax)
                 m_currRespSize = m_comSettings.m_responseSizeMin;
         }
+        else
+        {
+            m_currReqSize  = m_comSettings.m_requestSizeMin;
+            m_currRespSize = m_comSettings.m_responseSizeMin;
+        }
     }
 
     void getStats (cStats& stats)
@@ -315,6 +356,8 @@ private:
     std::uniform_int_distribution<std::mt19937::result_type> m_reqDelta;
     std::uniform_int_distribution<std::mt19937::result_type> m_respDelta;
     const uint64_t m_delay;
+    int_fast64_t m_sendLimitOctets;
+    int_fast64_t m_recvLimitOctets;
     uint64_t m_seq;
     std::mt19937 m_rng;
 

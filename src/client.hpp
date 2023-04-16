@@ -39,7 +39,7 @@ class cClient
 {
 public:
     cClient (unsigned clientID, cEvent& evTerminated, const std::string &server, uint16_t remotePort,
-        uint16_t localPort, uint64_t delay, unsigned count,
+        uint16_t localPort, uint64_t delay, unsigned count, int_fast64_t sendLimit, int_fast64_t recvLimit,
         unsigned socketBufSize, const cComSettings& settings,
         const cSocket::Properties& proto);
     ~cClient ();
@@ -63,7 +63,8 @@ private:
     uint16_t      m_localPort;
     uint64_t      m_delay;
     unsigned      m_count;
-    unsigned      m_time;
+    int_fast64_t  m_sendLimit;
+    int_fast64_t  m_recvLimit;
     unsigned      m_socketBufSize;
     cComSettings  m_settings;
     const cSocket::Properties m_protocol;

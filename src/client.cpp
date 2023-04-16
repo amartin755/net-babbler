@@ -35,7 +35,8 @@
 cEvent cClient::m_eventCancel;
 
 cClient::cClient (unsigned clientID, cEvent& evTerminated, const std::string &server, uint16_t remotePort,
-    uint16_t localPort, uint64_t delay, unsigned count, unsigned socketBufSize, const cComSettings& settings,
+    uint16_t localPort, uint64_t delay, unsigned count, int_fast64_t sendLimit, int_fast64_t recvLimit,
+    unsigned socketBufSize, const cComSettings& settings,
     const cSocket::Properties& protocol)
     : m_clientID (clientID),
       m_evTerminated (evTerminated),
@@ -46,6 +47,8 @@ cClient::cClient (unsigned clientID, cEvent& evTerminated, const std::string &se
       m_localPort (localPort),
       m_delay (delay),
       m_count (count),
+      m_sendLimit (sendLimit),
+      m_recvLimit (recvLimit),
       m_socketBufSize (socketBufSize),
       m_settings (settings),
       m_protocol (protocol),
@@ -114,7 +117,7 @@ void cClient::threadFunc ()
         cSocket sock = cSocket::connect (m_protocol, m_server, m_remotePort, m_localPort);
         if (sock.isValid())
         {
-            m_requestor = new cRequestor (sock, m_socketBufSize, m_settings, m_delay);
+            m_requestor = new cRequestor (sock, m_socketBufSize, m_settings, m_delay, m_sendLimit, m_recvLimit);
             std::string remote = sock.getpeername ();
             std::string local  = sock.getsockname ();
             setConnDescr (local, remote);

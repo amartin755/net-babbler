@@ -35,6 +35,8 @@ struct appOptions
     const char*  interval;
     int          count;
     int          time;
+    const char*  sendLimit;
+    const char*  recvLimit;
     int          sockBufSize;
     int          clientConnections;
     int          statusUpdateTime;
@@ -50,6 +52,8 @@ struct appOptions
         interval (nullptr),
         count (0),
         time (0),
+        sendLimit (nullptr),
+        recvLimit (nullptr),
         sockBufSize (1024*64),
         clientConnections (1),
         statusUpdateTime (3),

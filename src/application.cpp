@@ -51,6 +51,10 @@ cApplication::cApplication(const char* name, const char* brief, const char* usag
             "Stop after sending and receiving COUNT packets.", &m_options.count);
     addCmdLineOption (true, 't', "time", "SECONDS",
             "Stop after running SECONDS.", &m_options.time);
+    addCmdLineOption (true, 0, "send-bytes", "N",
+            "Stop after sending N bytes to the server. Default is unlimited.", &m_options.sendLimit);
+    addCmdLineOption (true, 0, "recv-bytes", "N",
+            "Stop after receiveing N bytes from the server. Default is unlimited.", &m_options.recvLimit);
     addCmdLineOption (true, 0, "buf-size", "BYTES",
             "Set internal buffer for send/receive to BYTES (default 64k)", &m_options.sockBufSize);
     addCmdLineOption (true, 'n', nullptr, "CONNECTIONS",
@@ -114,6 +118,13 @@ int cApplication::execute (const std::list<std::string>& args)
             return -2;
         }
 
+        int_fast64_t recvLimit = -1;
+        int_fast64_t sendLimit = -1;
+        if (m_options.recvLimit)
+            recvLimit = (int_fast64_t)std::stoll (m_options.recvLimit);
+        if (m_options.sendLimit)
+            sendLimit = (int_fast64_t)std::stoll (m_options.sendLimit);
+
         cSocket::Properties protocol;
         std::string remoteHost;
         std::list<std::pair<unsigned long, unsigned long>> remotePorts;
@@ -138,7 +149,7 @@ int cApplication::execute (const std::list<std::string>& args)
                 {
                     clients.emplace_back (clientID++, evClientTerminated, remoteHost,
                         (uint16_t)dport, localPort,
-                        interval_us, (unsigned)m_options.count,
+                        interval_us, (unsigned)m_options.count, sendLimit, recvLimit,
                         (unsigned)m_options.sockBufSize, comSettings,
                         protocol);
                 }
