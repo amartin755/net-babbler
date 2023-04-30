@@ -122,8 +122,15 @@ public:
     }
     void sendRequest (uint64_t seq, unsigned reqSize, unsigned respSize)
     {
+        // zero is allowed -> no response
+        if (respSize)
+        {
+            BUG_ON (respSize < sizeof (cProtocolHeader));
+            respSize -= sizeof (cProtocolHeader);
+        }
+        BUG_ON (reqSize < sizeof (cProtocolHeader));
         reqSize  -= sizeof (cProtocolHeader);
-        respSize -= sizeof (cProtocolHeader);
+
         cProtocolHeader* h = (cProtocolHeader*)m_buf;
         h->initRequest (seq, reqSize, respSize);
         send (h, reqSize, true);
@@ -204,7 +211,7 @@ private:
         ssize_t toBeReceived  = len - rcvLen;
         uint8_t expPayloadVal = (uint8_t)seq;
 
-        checkPayload (m_buf + sizeof (cProtocolHeader), rcvLen - sizeof (cProtocolHeader), isRequest, expPayloadVal);
+        checkPayload (m_buf + sizeof (cProtocolHeader), len - sizeof (cProtocolHeader), isRequest, expPayloadVal);
 
         // receive the remaining part of the message
         while (toBeReceived > 0)
@@ -309,9 +316,10 @@ public:
             throw cSocket::eventException ();
         }
 
-        sendRequest (++m_seq, m_currReqSize, m_currRespSize);
         auto start = std::chrono::high_resolution_clock::now();
-        recvResponse (m_seq);
+        sendRequest (++m_seq, m_currReqSize, m_currRespSize);
+        if (m_currRespSize)
+            recvResponse (m_seq);
         auto end = std::chrono::high_resolution_clock::now();
 
         std::chrono::duration<double, std::milli> roundtrip = end - start;

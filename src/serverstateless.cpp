@@ -33,7 +33,7 @@ cStatelessServer::cStatelessServer (const cSocket::Properties& proto, uint16_t l
 
         for (int n = std::max ((int)numberOfCPUs, 4); n > 0; n--)
         {
-            m_connThreads.push_back (new cResponderThread(threadLimit, std::move(sListener.clone()), socketBufSize, proto.toString()));
+            m_connThreads.push_back (new cResponderThread(threadLimit, std::move(sListener.clone()), socketBufSize, proto.toString(), true));
         }
     }
     catch (const cSocket::errorException& e)

@@ -80,9 +80,9 @@ public:
 
         const unsigned MIN_SIZE = 32;
         if (m_requestSizeMin < MIN_SIZE ||
-            m_requestSizeMax < MIN_SIZE ||
+            m_requestSizeMax < MIN_SIZE /*||
             m_responseSizeMin < MIN_SIZE ||
-            m_responseSizeMax < MIN_SIZE)
+            m_responseSizeMax < MIN_SIZE*/)
             throw std::range_error ("size of request and response must be at least 32 bytes.");
     }
     // fixed size

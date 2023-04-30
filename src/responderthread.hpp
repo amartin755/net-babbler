@@ -29,7 +29,7 @@
 class cResponderThread
 {
 public:
-    cResponderThread (cSemaphore& threadLimit, cSocket s, unsigned socketBufSize, const char* proto);
+    cResponderThread (cSemaphore& threadLimit, cSocket s, unsigned socketBufSize, const char* proto, bool isConnectionless = false);
     ~cResponderThread ();
     bool isFinished () {return m_finished;}
 
@@ -37,6 +37,7 @@ public:
 
 private:
     std::atomic<bool> m_finished;
+    bool              m_isConnectionless;
     std::thread       m_thread;
 };
 

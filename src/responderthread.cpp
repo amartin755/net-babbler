@@ -21,8 +21,10 @@
 #include "protocol.hpp"
 
 
-cResponderThread::cResponderThread (cSemaphore& threadLimit, cSocket s, unsigned socketBufSize, const char* proto)
-: m_finished (false), m_thread (&cResponderThread::connectionThreadFunc, this, std::move(s), socketBufSize, std::ref(threadLimit), proto)
+cResponderThread::cResponderThread (cSemaphore& threadLimit, cSocket s, unsigned socketBufSize, const char* proto, bool isConnectionless)
+: m_finished (false),
+  m_isConnectionless (isConnectionless),
+  m_thread (&cResponderThread::connectionThreadFunc, this, std::move(s), socketBufSize, std::ref(threadLimit), proto)
 {
 
 }
@@ -37,7 +39,7 @@ void cResponderThread::connectionThreadFunc (cSocket s, unsigned socketBufSize, 
     Console::PrintDebug ("%s responder thread started\n", proto);
     try
     {
-        cResponder responder (s, socketBufSize, true);
+        cResponder responder (s, socketBufSize, m_isConnectionless);
 
         while (1)
         {
