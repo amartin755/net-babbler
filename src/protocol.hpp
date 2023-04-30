@@ -114,10 +114,13 @@ class cBabblerProtocol
 public:
     cBabblerProtocol (cSocket& sock, unsigned bufsize) : m_socket (sock), m_bufsize (bufsize)
     {
-        m_buf = new uint8_t[bufsize];
+        m_buf  = new uint8_t[bufsize];
+        m_pBuf = m_buf;
+        m_bufContentSize = 0;
     }
     ~cBabblerProtocol ()
     {
+        m_pBuf = nullptr;
         delete[] m_buf;
     }
     void sendRequest (uint64_t seq, unsigned reqSize, unsigned respSize)
@@ -191,19 +194,27 @@ private:
     uint64_t receive (bool& isRequest, uint32_t& options,
         struct sockaddr * src_addr = nullptr, socklen_t * addrlen = nullptr)
     {
-        // first try to at least receive the cProtocolHeader
-        ssize_t rcvLen = m_socket.recv (m_buf, m_bufsize, sizeof (cProtocolHeader),
-            src_addr, addrlen);
+        ssize_t rcvLen = m_bufContentSize;
+
+        if (!rcvLen)
+        {
+            // first try to at least receive the cProtocolHeader
+            rcvLen = m_socket.recv (m_buf, m_bufsize, sizeof (cProtocolHeader),
+                src_addr, addrlen);
+            m_bufContentSize = rcvLen;
+            updateReceiveStats (rcvLen, 0);
+        }
+
+        // FIXME currently we can't handle fragmented headers
+        BUG_ON ((size_t)rcvLen < sizeof (cProtocolHeader));
+
         // is this our cProtocolHeader?
-        cProtocolHeader* h = (cProtocolHeader*)m_buf;
+        cProtocolHeader* h = (cProtocolHeader*)m_pBuf;
         if (!h->checkChecksum())
             throw cProtocolException ("Wrong header checksum");
-
         isRequest = h->isRequest();
         if (!isRequest && !h->isResponse())
             throw cProtocolException ("Unknown packet type");
-
-        updateReceiveStats (rcvLen, 0);
 
         const uint32_t len    = h->getLength();
         const uint64_t seq    = h->getSequence();
@@ -211,19 +222,30 @@ private:
         ssize_t toBeReceived  = len - rcvLen;
         uint8_t expPayloadVal = (uint8_t)seq;
 
-        checkPayload (m_buf + sizeof (cProtocolHeader), len - sizeof (cProtocolHeader), isRequest, expPayloadVal);
+        checkPayload (m_pBuf + sizeof (cProtocolHeader),
+                      std::min (len, (uint32_t)rcvLen) - sizeof (cProtocolHeader),
+                      isRequest, expPayloadVal);
 
-        // receive the remaining part of the message
+        // receive the remaining part of the message and check the content
         while (toBeReceived > 0)
         {
-            rcvLen = m_socket.recv (m_buf, sizeof(m_bufsize), 0, src_addr, addrlen);
+            rcvLen = m_socket.recv (m_buf, std::min ((size_t)toBeReceived, m_bufsize), 0, src_addr, addrlen);
+            m_bufContentSize = rcvLen;
             updateReceiveStats (rcvLen, 0);
             toBeReceived -= rcvLen;
             checkPayload (m_buf, rcvLen, isRequest, expPayloadVal);
         }
+        // receive buffer contains more then one message
         if (toBeReceived < 0)
         {
-            Console::PrintVerbose ("Warning: chunk received\n");
+            m_pBuf += len;
+            m_bufContentSize -= len;
+            BUG_ON (m_pBuf >= m_buf + m_bufsize);
+        }
+        else
+        {
+            m_pBuf = m_buf;
+            m_bufContentSize = 0;
         }
         updateReceiveStats (0, 1);
 
@@ -268,7 +290,9 @@ protected:
 private:
     cSocket& m_socket;
     const size_t m_bufsize;
+    size_t m_bufContentSize;
     uint8_t* m_buf;
+    uint8_t* m_pBuf;
     cStats m_stats;
     std::mutex m_statsLock;
 };
