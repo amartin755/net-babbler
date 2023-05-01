@@ -19,22 +19,16 @@
 #ifndef PROTOCOL_HPP
 #define PROTOCOL_HPP
 
-#include <arpa/inet.h>
+
 #include <cstdint>
 #include <cinttypes>
 #include <stdexcept>
-#include <random>
-#include <chrono>
-#include <thread>
 #include <mutex>
-#include <algorithm>
 
 #include "bug.hpp"
 #include "socket.hpp"
 #include "stats.hpp"
-#include "comsettings.hpp"
 
-//TODO split this header-only implementation
 
 class cProtocolException : public std::runtime_error
 {
@@ -111,171 +105,38 @@ private:
 
 class cBabblerProtocol
 {
-public:
-    cBabblerProtocol (cSocket& sock, unsigned bufsize) : m_socket (sock), m_bufsize (bufsize)
-    {
-        m_buf  = new uint8_t[bufsize];
-        m_pBuf = m_buf;
-        m_bufContentSize = 0;
-    }
-    ~cBabblerProtocol ()
-    {
-        m_pBuf = nullptr;
-        delete[] m_buf;
-    }
-    void sendRequest (uint64_t seq, unsigned reqSize, unsigned respSize)
-    {
-        // zero is allowed -> no response
-        if (respSize)
-        {
-            BUG_ON (respSize < sizeof (cProtocolHeader));
-            respSize -= sizeof (cProtocolHeader);
-        }
-        BUG_ON (reqSize < sizeof (cProtocolHeader));
-        reqSize  -= sizeof (cProtocolHeader);
+protected:
+    cBabblerProtocol (cSocket& sock, unsigned bufsize);
 
-        cProtocolHeader* h = (cProtocolHeader*)m_buf;
-        h->initRequest (seq, reqSize, respSize);
-        send (h, reqSize, true);
-    }
+public:
+    // no default/copy/move constructor and copy/move operator
+    cBabblerProtocol () = delete;
+    cBabblerProtocol (const cBabblerProtocol&) = delete;
+    cBabblerProtocol& operator=(const cBabblerProtocol&) = delete;
+    cBabblerProtocol (cBabblerProtocol&&) = delete;
+    cBabblerProtocol& operator= (cBabblerProtocol&& obj) = delete;
+
+    ~cBabblerProtocol ();
+
+    void sendRequest (uint64_t seq, unsigned reqSize, unsigned respSize);
     void sendResponse (uint64_t seq, unsigned respSize,
-        const struct sockaddr *dest_addr = nullptr, socklen_t addrlen = 0)
-    {
-        cProtocolHeader* h = (cProtocolHeader*)m_buf;
-        h->initResponse (seq, respSize);
-        send (h, respSize, false, dest_addr, addrlen);
-    }
-    void recvResponse (uint64_t expSeq)
-    {
-        bool isRequest   = false;
-        uint32_t options = 0;
-        uint64_t seq = receive (isRequest, options);
-        if (isRequest)
-            throw cProtocolException ("Unexpected packet type");
-        if (expSeq != seq)
-            throw cProtocolException ("Unexpected sequence number");
-    }
+        const struct sockaddr *dest_addr = nullptr, socklen_t addrlen = 0);
+    void recvResponse (uint64_t expSeq);
     void recvRequest (uint64_t& seq, uint32_t& expRespLen,
-        struct sockaddr * src_addr = nullptr, socklen_t * addrlen = nullptr)
-    {
-        bool isRequest = true;
-        seq = receive (isRequest, expRespLen, src_addr, addrlen);
-        if (!isRequest)
-            throw cProtocolException ("Unexpected packet type");
-    }
-    void getStats (cStats& stats)
-    {
-        m_statsLock.lock ();
-        stats = m_stats;
-        m_statsLock.unlock ();
-    }
+        struct sockaddr * src_addr = nullptr, socklen_t * addrlen = nullptr);
+    void getStats (cStats& stats);
     const unsigned MIN_LEN = 32;
 
 private:
     void send (cProtocolHeader* h, unsigned size, int incr,
-        const struct sockaddr *dest_addr = nullptr, socklen_t addrlen = 0)
-    {
-        const unsigned totalLen = size + sizeof(cProtocolHeader);
-        uint8_t* p              = m_buf + sizeof (cProtocolHeader);
-        unsigned sent           = sizeof (cProtocolHeader);
-        uint8_t counter         = (uint8_t)h->getSequence();
-
-        while (sent < totalLen)
-        {
-            for (; sent < totalLen && p < (m_buf + m_bufsize); sent++)
-                *p++ = incr ? ++counter : --counter;
-
-            uint64_t sentLen = (uint64_t)m_socket.send (m_buf, p - m_buf, dest_addr, addrlen);
-            updateTransmitStats (sentLen, sent < totalLen ? 0 : 1);
-            p = m_buf;
-        }
-    }
+        const struct sockaddr *dest_addr = nullptr, socklen_t addrlen = 0);
 
     uint64_t receive (bool& isRequest, uint32_t& options,
-        struct sockaddr * src_addr = nullptr, socklen_t * addrlen = nullptr)
-    {
-        ssize_t rcvLen = m_bufContentSize;
+        struct sockaddr * src_addr = nullptr, socklen_t * addrlen = nullptr);
 
-        if (!rcvLen)
-        {
-            // first try to at least receive the cProtocolHeader
-            rcvLen = m_socket.recv (m_buf, m_bufsize, sizeof (cProtocolHeader),
-                src_addr, addrlen);
-            m_bufContentSize = rcvLen;
-            updateReceiveStats (rcvLen, 0);
-        }
-
-        // FIXME currently we can't handle fragmented headers
-        BUG_ON ((size_t)rcvLen < sizeof (cProtocolHeader));
-
-        // is this our cProtocolHeader?
-        cProtocolHeader* h = (cProtocolHeader*)m_pBuf;
-        if (!h->checkChecksum())
-            throw cProtocolException ("Wrong header checksum");
-        isRequest = h->isRequest();
-        if (!isRequest && !h->isResponse())
-            throw cProtocolException ("Unknown packet type");
-
-        const uint32_t len    = h->getLength();
-        const uint64_t seq    = h->getSequence();
-        options               = h->getOptions();
-        ssize_t toBeReceived  = len - rcvLen;
-        uint8_t expPayloadVal = (uint8_t)seq;
-
-        checkPayload (m_pBuf + sizeof (cProtocolHeader),
-                      std::min (len, (uint32_t)rcvLen) - sizeof (cProtocolHeader),
-                      isRequest, expPayloadVal);
-
-        // receive the remaining part of the message and check the content
-        while (toBeReceived > 0)
-        {
-            rcvLen = m_socket.recv (m_buf, std::min ((size_t)toBeReceived, m_bufsize), 0, src_addr, addrlen);
-            m_bufContentSize = rcvLen;
-            updateReceiveStats (rcvLen, 0);
-            toBeReceived -= rcvLen;
-            checkPayload (m_buf, rcvLen, isRequest, expPayloadVal);
-        }
-        // receive buffer contains more then one message
-        if (toBeReceived < 0)
-        {
-            m_pBuf += len;
-            m_bufContentSize -= len;
-            BUG_ON (m_pBuf >= m_buf + m_bufsize);
-        }
-        else
-        {
-            m_pBuf = m_buf;
-            m_bufContentSize = 0;
-        }
-        updateReceiveStats (0, 1);
-
-        return seq;
-    }
-
-    void checkPayload (const uint8_t* data, unsigned len, bool incr, uint8_t& expVal) const
-    {
-        while (len--)
-        {
-            incr ? ++expVal : --expVal;
-            if (*data++ != expVal)
-                throw cProtocolException ("Corrupted packet");
-        }
-    }
-
-    void updateTransmitStats (uint64_t sentOctets, uint64_t sentPackets)
-    {
-        m_statsLock.lock ();
-        m_stats.m_sentOctets  += sentOctets;
-        m_stats.m_sentPackets += sentPackets;
-        m_statsLock.unlock ();
-    }
-    void updateReceiveStats (uint64_t receivedOctets, uint64_t receivedPackets)
-    {
-        m_statsLock.lock ();
-        m_stats.m_receivedOctets  += receivedOctets;
-        m_stats.m_receivedPackets += receivedPackets;
-        m_statsLock.unlock ();
-    }
+    void checkPayload (const uint8_t* data, unsigned len, bool incr, uint8_t& expVal) const;
+    void updateTransmitStats (uint64_t sentOctets, uint64_t sentPackets);
+    void updateReceiveStats (uint64_t receivedOctets, uint64_t receivedPackets);
 
 protected:
     int_fast64_t getSentOctets () const
@@ -295,146 +156,6 @@ private:
     uint8_t* m_pBuf;
     cStats m_stats;
     std::mutex m_statsLock;
-};
-
-
-class cRequestor : public cBabblerProtocol
-{
-public:
-    cRequestor (cSocket& sock, unsigned bufsize, const cComSettings comSettings, uint64_t delay, int_fast64_t sendLimit, int_fast64_t recvLimit)
-        : cBabblerProtocol (sock, bufsize),
-          m_comSettings (comSettings),
-          m_currReqSize (m_comSettings.m_requestSizeMin),
-          m_currRespSize (m_comSettings.m_responseSizeMin),
-          m_reqDelta (0, m_comSettings.m_requestSizeMax - m_comSettings.m_requestSizeMin),
-          m_respDelta (0, m_comSettings.m_responseSizeMax - m_comSettings.m_responseSizeMin),
-          m_delay (delay),
-          m_sendLimitOctets(sendLimit),
-          m_recvLimitOctets(recvLimit),
-          m_seq (0),
-          m_wantStatus (m_delay > 10000)
-    {
-    }
-    bool isLimitReached (int_fast64_t limit, int_fast64_t sentRecvOctetts, unsigned& toBeSentReceived) const
-    {
-        if (limit > 0)
-        {
-            if (sentRecvOctetts >= limit)
-                return true;
-
-            int_fast64_t rest = limit - sentRecvOctetts;
-
-            toBeSentReceived = std::min ((int_fast64_t)toBeSentReceived, rest);
-            if (rest - toBeSentReceived < MIN_LEN && toBeSentReceived < rest)
-                toBeSentReceived -= MIN_LEN - (rest - toBeSentReceived);
-            if (toBeSentReceived < MIN_LEN) // should never happen
-                toBeSentReceived = MIN_LEN;
-        }
-        return false;
-    }
-    void doJob ()
-    {
-        if (isLimitReached (m_sendLimitOctets, getSentOctets(), m_currReqSize) ||
-            isLimitReached (m_recvLimitOctets, getReceivedOctets(), m_currRespSize))
-        {
-            throw cSocket::eventException ();
-        }
-
-        auto start = std::chrono::high_resolution_clock::now();
-        sendRequest (++m_seq, m_currReqSize, m_currRespSize);
-        if (m_currRespSize)
-            recvResponse (m_seq);
-        auto end = std::chrono::high_resolution_clock::now();
-
-        std::chrono::duration<double, std::milli> roundtrip = end - start;
-
-        if (m_wantStatus)
-            Console::Print (" %4" PRIu64 ": sent %u bytes, received %u bytes, roundtrip %.3f ms\n",
-                m_seq, m_currReqSize, m_currRespSize, roundtrip);
-        if (m_delay)
-            std::this_thread::sleep_for (std::chrono::microseconds (m_delay));
-
-        if (m_comSettings.isRand ())
-        {
-            // generate random delta for request and response
-            m_currReqSize  = m_comSettings.m_requestSizeMin  + m_reqDelta (m_rng);
-            m_currRespSize = m_comSettings.m_responseSizeMin + m_respDelta (m_rng);
-        }
-        else if (m_comSettings.isSweep ())
-        {
-            m_currReqSize  += m_comSettings.m_stepWidth;
-            m_currRespSize += m_comSettings.m_stepWidth;
-            if (m_currReqSize > m_comSettings.m_requestSizeMax)
-                m_currReqSize = m_comSettings.m_requestSizeMin;
-            if (m_currRespSize > m_comSettings.m_responseSizeMax)
-                m_currRespSize = m_comSettings.m_responseSizeMin;
-        }
-        else
-        {
-            m_currReqSize  = m_comSettings.m_requestSizeMin;
-            m_currRespSize = m_comSettings.m_responseSizeMin;
-        }
-    }
-
-    void getStats (cStats& stats)
-    {
-        cBabblerProtocol::getStats (stats);
-    }
-
-private:
-    const cComSettings m_comSettings;
-    unsigned m_currReqSize;
-    unsigned m_currRespSize;
-    std::uniform_int_distribution<std::mt19937::result_type> m_reqDelta;
-    std::uniform_int_distribution<std::mt19937::result_type> m_respDelta;
-    const uint64_t m_delay;
-    int_fast64_t m_sendLimitOctets;
-    int_fast64_t m_recvLimitOctets;
-    uint64_t m_seq;
-    std::mt19937 m_rng;
-
-    const bool m_wantStatus;
-};
-
-class cResponder : public cBabblerProtocol
-{
-public:
-    cResponder (cSocket& sock, unsigned bufsize, bool isConnectionless = false)
-        : cBabblerProtocol (sock, bufsize),
-          m_isConnectionless (isConnectionless),
-          m_remoteAddr (nullptr)
-    {
-        if (m_isConnectionless)
-        {
-            m_remoteAddr = new sockaddr_storage;
-            std::memset (m_remoteAddr, 0, sizeof (*m_remoteAddr));
-        }
-    }
-    ~cResponder ()
-    {
-        delete m_remoteAddr;
-    }
-
-    void doJob ()
-    {
-        uint64_t seq;
-        uint32_t expSeqLen;
-
-        if (m_isConnectionless)
-        {
-            socklen_t addrlen = sizeof (*m_remoteAddr);
-            recvRequest (seq, expSeqLen, (sockaddr*)m_remoteAddr, &addrlen);
-            sendResponse (seq, expSeqLen, (sockaddr*)m_remoteAddr, addrlen);
-        }
-        else
-        {
-            recvRequest (seq, expSeqLen);
-            sendResponse (seq, expSeqLen);
-        }
-    }
-private:
-    bool m_isConnectionless;
-    sockaddr_storage* m_remoteAddr;
 };
 
 #endif

@@ -99,6 +99,7 @@ set (SOURCES
     ${SOURCE_DIR}/serverstateless.cpp
     ${SOURCE_DIR}/valueparser.cpp
     ${SOURCE_DIR}/responderthread.cpp
+    ${SOURCE_DIR}/protocol.cpp
 )
 add_subdirectory(libcmdline)
 

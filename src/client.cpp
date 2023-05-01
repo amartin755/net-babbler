@@ -30,7 +30,7 @@
 #include "client.hpp"
 #include "console.hpp"
 #include "socket.hpp"
-#include "protocol.hpp"
+#include "requestor.hpp"
 
 cEvent cClient::m_eventCancel;
 

@@ -18,7 +18,7 @@
 
 #include "responderthread.hpp"
 #include "console.hpp"
-#include "protocol.hpp"
+#include "responder.hpp"
 
 
 cResponderThread::cResponderThread (cSemaphore& threadLimit, cSocket s, unsigned socketBufSize, const char* proto, bool isConnectionless)
